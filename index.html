@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Граф Молоко</title>
+<style>
+  :root { --bg:#16181d; --panel:#1f222a; --text:#e8e8e8; --muted:#9aa0a6; --line:#2e323c; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; display:flex; height:100vh; overflow:hidden; }
+  aside { width:320px; padding:16px; background:var(--panel); border-right:1px solid var(--line); overflow:auto; flex-shrink:0; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:18px 0 8px; }
+  label.rel, .rel { display:flex; align-items:center; gap:8px; padding:3px 0; cursor:pointer; }
+  .sw { width:14px; height:14px; border-radius:3px; flex-shrink:0; }
+  .count { margin-left:auto; color:var(--muted); font-size:12px; }
+  button { background:#2b2f39; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; margin-right:6px; }
+  button.on { background:#3d4452; border-color:#596173; }
+  input[type=search] { width:100%; padding:6px 8px; background:#15171c; color:var(--text); border:1px solid var(--line); border-radius:6px; font:inherit; }
+  .stats { color:var(--muted); font-size:12px; margin-top:6px; }
+  #info .group { margin:8px 0; }
+  #info .group b { display:block; font-size:12px; margin-bottom:2px; }
+  #info li { color:var(--muted); }
+  #info li span { color:var(--text); cursor:pointer; }
+  #info li span:hover { text-decoration:underline; }
+  main { flex:1; position:relative; overflow:hidden; }
+  svg { width:100%; height:100%; display:block; }
+  text { fill:var(--text); font-size:11px; pointer-events:none; paint-order:stroke; stroke:var(--bg); stroke-width:3px; }
+  .dim { opacity:.07; }
+  #tip { position:fixed; pointer-events:none; max-width:300px; background:#0f1115ee; border:1px solid var(--line); border-radius:8px;
+         padding:8px 10px; font-size:13px; display:none; z-index:10; box-shadow:0 4px 16px #0008; }
+  #tip .t { font-weight:600; } #tip .k { color:var(--muted); font-size:12px; margin-bottom:4px; }
+  #table { position:absolute; inset:0; overflow:auto; padding:16px; display:none; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); }
+  th { position:sticky; top:0; background:var(--bg); cursor:pointer; color:var(--muted); }
+  @media (max-width: 700px) { body { flex-direction:column; } aside { width:100%; height:42vh; } }
+</style>
+</head>
+<body>
+<aside>
+  <h1>МОЛОКО</h1>
+  <div style="color:var(--muted)">Связи между людьми, животными, тарой, продуктами и всем, что вокруг молока. Наведите на узел или линию, чтобы увидеть подсказку.</div>
+  <div class="stats" id="stats"></div>
+  <h2>Поиск</h2>
+  <input type="search" id="q" placeholder="например: кумыс, бариста, тетрапак" list="names">
+  <datalist id="names"></datalist>
+  <h2>Вид</h2>
+  <button id="vGraph" class="on">граф</button><button id="vTable">таблица связей</button>
+  <h2>Логики связи</h2>
+  <div id="rels"></div>
+  <div style="margin-top:8px"><button id="all">все</button><button id="none">ни одной</button></div>
+  <h2>Узел</h2>
+  <div id="info" style="color:var(--muted)">Нажмите на узел, чтобы увидеть все его связи по типам.</div>
+  <h2>Типы узлов</h2>
+  <div id="types"></div>
+</aside>
+<main>
+  <svg id="g"></svg>
+  <div id="table"></div>
+</main>
+<div id="tip"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="graph.js"></script>
+<script>
+const G = window.GRAPH;
+const active = new Set(Object.keys(G.relations));
+let selected = null;
+let view = 'graph';
+
+// Проверка данных: каждая связь ссылается на существующий узел
+const ids = new Set(G.nodes.map(n => n.id));
+G.edges.forEach(e => { [e.s, e.t].forEach(x => { if (!ids.has(x)) console.warn('Нет узла:', x, e); }); });
+const dup = G.nodes.map(n => n.id).filter((x, i, a) => a.indexOf(x) !== i);
+if (dup.length) console.warn('Повторяющиеся узлы:', dup);
+
+document.getElementById('stats').textContent =
+  `${G.nodes.length} узлов · ${G.edges.length} связей · ${Object.keys(G.relations).length} логик`;
+document.getElementById('names').innerHTML = G.nodes.map(n => `<option value="${n.id}">`).join('');
+
+// Подсказки
+const tip = document.getElementById('tip');
+function showTip(ev, html) { tip.innerHTML = html; tip.style.display = 'block'; moveTip(ev); }
+function moveTip(ev) {
+  const x = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8);
+  const y = Math.min(ev.clientY + 14, innerHeight - tip.offsetHeight - 8);
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+const nodeTip = n => `<div class="t">${n.id}</div><div class="k">${G.nodeTypes[n.type].label} · связей: ${n.deg}</div>${n.info || ''}`;
+const edgeTip = l => `<div class="t">${l.source.id} → ${l.target.id}</div>
+  <div class="k" style="color:${G.relations[l.rel].color}">${G.relations[l.rel].label} · сила ${l.w}</div>${l.note || ''}`;
+
+// Панель логик
+const relsEl = document.getElementById('rels');
+for (const [k, r] of Object.entries(G.relations)) {
+  const n = G.edges.filter(e => e.rel === k).length;
+  relsEl.insertAdjacentHTML('beforeend',
+    `<label class="rel" data-hint="${r.hint}"><input type="checkbox" data-rel="${k}" checked>
+     <span class="sw" style="background:${r.color}"></span>${r.label}<span class="count">${n}</span></label>`);
+}
+relsEl.querySelectorAll('label').forEach(l => {
+  l.addEventListener('mouseenter', ev => showTip(ev, l.dataset.hint));
+  l.addEventListener('mousemove', moveTip);
+  l.addEventListener('mouseleave', hideTip);
+});
+relsEl.addEventListener('change', e => {
+  const k = e.target.dataset.rel; e.target.checked ? active.add(k) : active.delete(k); update();
+});
+document.getElementById('all').onclick = () => { Object.keys(G.relations).forEach(k => active.add(k)); syncBoxes(); update(); };
+document.getElementById('none').onclick = () => { active.clear(); syncBoxes(); update(); };
+function syncBoxes() { relsEl.querySelectorAll('input').forEach(i => i.checked = active.has(i.dataset.rel)); }
+
+const typeCount = d3.rollup(G.nodes, v => v.length, n => n.type);
+document.getElementById('types').innerHTML = Object.entries(G.nodeTypes)
+  .map(([k, t]) => `<div class="rel"><span class="sw" style="background:${t.color};border-radius:50%"></span>${t.label}<span class="count">${typeCount.get(k) || 0}</span></div>`).join('');
+
+// Граф
+const svg = d3.select('#g');
+const root = svg.append('g');
+const zoom = d3.zoom().scaleExtent([.15, 4]).on('zoom', ev => root.attr('transform', ev.transform));
+svg.call(zoom);
+svg.append('defs').selectAll('marker').data(Object.entries(G.relations)).join('marker')
+  .attr('id', d => 'arr-' + d[0]).attr('viewBox', '0 -4 8 8').attr('refX', 16)
+  .attr('markerUnits', 'userSpaceOnUse').attr('markerWidth', 8).attr('markerHeight', 8).attr('orient', 'auto')
+  .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', d => d[1].color);
+
+const nodes = G.nodes.map(n => ({ ...n, deg: 0 }));
+const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+const links = G.edges.filter(e => byId[e.s] && byId[e.t]).map(e => ({ ...e, source: e.s, target: e.t }));
+links.forEach(l => { byId[l.s].deg++; byId[l.t].deg++; });
+const center = byId['молоко']; center.fx = 0; center.fy = 0;
+const radius = n => n === center ? 24 : 5 + Math.min(10, Math.sqrt(n.deg) * 1.6);
+
+const linkSel = root.append('g').selectAll('line').data(links).join('line')
+  .attr('stroke', d => G.relations[d.rel].color).attr('stroke-opacity', .6)
+  .attr('stroke-width', d => 0.6 + d.w * 3).attr('marker-end', d => `url(#arr-${d.rel})`)
+  .on('mouseenter', (ev, d) => showTip(ev, edgeTip(d))).on('mousemove', moveTip).on('mouseleave', hideTip);
+
+const nodeSel = root.append('g').selectAll('g').data(nodes).join('g').style('cursor', 'pointer')
+  .call(d3.drag()
+    .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+    .on('drag',  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+    .on('end',   (ev, d) => { if (!ev.active) sim.alphaTarget(0); if (d !== center) { d.fx = null; d.fy = null; } }))
+  .on('click', (ev, d) => { select(selected === d ? null : d); ev.stopPropagation(); })
+  .on('mouseenter', (ev, d) => showTip(ev, nodeTip(d))).on('mousemove', moveTip).on('mouseleave', hideTip);
+svg.on('click', () => select(null));
+
+nodeSel.append('circle').attr('r', radius)
+  .attr('fill', d => G.nodeTypes[d.type].color).attr('stroke', '#16181d').attr('stroke-width', 1.5);
+nodeSel.append('text').attr('dy', d => radius(d) + 12).attr('text-anchor', 'middle')
+  .style('font-weight', d => d === center ? 700 : 400).style('font-size', d => d === center ? '14px' : null).text(d => d.id);
+
+const sim = d3.forceSimulation(nodes)
+  .force('link', d3.forceLink(links).id(d => d.id).distance(d => 50 + (1 - d.w) * 120).strength(d => .08 + d.w * .3))
+  .force('charge', d3.forceManyBody().strength(-260))
+  .force('collide', d3.forceCollide(d => radius(d) + 14))
+  .force('x', d3.forceX(0).strength(.02)).force('y', d3.forceY(0).strength(.02))
+  .on('tick', () => {
+    linkSel.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+function resize() {
+  const { width, height } = svg.node().getBoundingClientRect();
+  svg.attr('viewBox', [-width / 2, -height / 2, width, height]);
+}
+addEventListener('resize', resize); resize();
+svg.call(zoom.transform, d3.zoomIdentity.scale(.45));
+
+function select(n) {
+  selected = n; update();
+  if (n && view === 'graph') {
+    const s = Math.max(d3.zoomTransform(svg.node()).k, .9);
+    svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.scale(s).translate(-n.x, -n.y));
+  }
+}
+
+function update() {
+  const vis = l => active.has(l.rel);
+  const touched = new Set();
+  links.forEach(l => { if (vis(l)) { touched.add(l.source.id); touched.add(l.target.id); } });
+  const near = new Set();
+  if (selected) { near.add(selected.id); links.forEach(l => { if (vis(l) && (l.source === selected || l.target === selected)) { near.add(l.source.id); near.add(l.target.id); } }); }
+
+  linkSel.style('display', l => vis(l) ? null : 'none')
+    .classed('dim', l => selected && l.source !== selected && l.target !== selected);
+  nodeSel.style('display', n => touched.has(n.id) || n === center ? null : 'none')
+    .classed('dim', n => selected && !near.has(n.id));
+  renderInfo();
+  if (view === 'table') renderTable();
+}
+
+// Карточка узла
+function renderInfo() {
+  const el = document.getElementById('info');
+  if (!selected) { el.innerHTML = 'Нажмите на узел, чтобы увидеть все его связи по типам.'; return; }
+  const mine = links.filter(l => l.source === selected || l.target === selected);
+  const groups = {};
+  mine.forEach(l => (groups[l.rel] ??= []).push(l));
+  el.innerHTML = `<div style="color:var(--text);font-size:16px;font-weight:600">${selected.id}</div>
+    <div>${G.nodeTypes[selected.type].label} · ${mine.length} связей · ${Object.keys(groups).length} тип(а)</div>
+    <div style="color:var(--text);margin:6px 0">${selected.info || ''}</div>` +
+    Object.entries(groups).map(([rel, ls]) => `<div class="group"><b style="color:${G.relations[rel].color}">${G.relations[rel].label}</b><ul style="margin:0;padding-left:18px">` +
+      ls.sort((a, b) => b.w - a.w).map(l => {
+        const other = l.source === selected ? l.target : l.source;
+        const arrow = l.source === selected ? '→' : '←';
+        return `<li>${arrow} <span data-go="${other.id}">${other.id}</span> · ${l.w}${l.note ? ' · ' + l.note : ''}</li>`;
+      }).join('') + '</ul></div>').join('');
+}
+document.getElementById('info').addEventListener('click', e => { const go = e.target.dataset.go; if (go) select(byId[go]); });
+
+// Поиск
+document.getElementById('q').addEventListener('change', e => {
+  const v = e.target.value.trim().toLowerCase();
+  const n = byId[v] || nodes.find(n => n.id.toLowerCase().includes(v));
+  if (n) select(n);
+});
+
+// Таблица всех связей
+let sortKey = 'rel', sortDir = 1;
+function renderTable() {
+  const rows = links.filter(l => active.has(l.rel) && (!selected || l.source === selected || l.target === selected));
+  rows.sort((a, b) => {
+    const va = sortKey === 'w' ? a.w : sortKey === 'rel' ? G.relations[a.rel].label : a[sortKey].id;
+    const vb = sortKey === 'w' ? b.w : sortKey === 'rel' ? G.relations[b.rel].label : b[sortKey].id;
+    return (va > vb ? 1 : va < vb ? -1 : 0) * sortDir;
+  });
+  const cols = [['source', 'Откуда'], ['target', 'Куда'], ['rel', 'Логика'], ['w', 'Сила'], ['note', 'Пометка']];
+  document.getElementById('table').innerHTML =
+    `<div class="stats" style="margin-bottom:8px">${rows.length} связей${selected ? ' узла «' + selected.id + '»' : ''}</div><table><thead><tr>` +
+    cols.map(([k, t]) => `<th data-k="${k}">${t}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(l => `<tr><td>${l.source.id}</td><td>${l.target.id}</td>
+      <td><span class="sw" style="display:inline-block;vertical-align:-2px;background:${G.relations[l.rel].color}"></span> ${G.relations[l.rel].label}</td>
+      <td>${l.w}</td><td style="color:var(--muted)">${l.note || ''}</td></tr>`).join('') + '</tbody></table>';
+}
+document.getElementById('table').addEventListener('click', e => {
+  const k = e.target.dataset.k; if (!k || k === 'note') return;
+  sortDir = sortKey === k ? -sortDir : 1; sortKey = k; renderTable();
+});
+function setView(v) {
+  view = v;
+  document.getElementById('vGraph').classList.toggle('on', v === 'graph');
+  document.getElementById('vTable').classList.toggle('on', v === 'table');
+  document.getElementById('table').style.display = v === 'table' ? 'block' : 'none';
+  svg.style('display', v === 'graph' ? null : 'none');
+  update();
+}
+document.getElementById('vGraph').onclick = () => setView('graph');
+document.getElementById('vTable').onclick = () => setView('table');
+
+update();
+</script>
+</body>
+</html>
