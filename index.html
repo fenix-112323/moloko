@@ -29,6 +29,11 @@
   text { fill:var(--text); font-size:11px; pointer-events:none; paint-order:stroke; stroke:var(--bg); stroke-width:3px; }
   .dim { opacity:.08; }
   .more { fill:#16181d; font-size:10px; stroke:none; font-weight:700; }
+  .ico { stroke:none; pointer-events:none; }
+  .elbl { font-size:10px; font-style:italic; stroke-width:3px; }
+  .sec { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; stroke-width:4px; }
+  .story { margin:4px 0; font-size:13px; }
+  .story b { font-weight:600; }
   #tip { position:fixed; pointer-events:none; max-width:340px; background:#0f1115ee; border:1px solid var(--line); border-radius:8px;
          padding:8px 10px; font-size:13px; display:none; z-index:10; box-shadow:0 4px 16px #0008; }
   .t { font-weight:600; }
@@ -104,7 +109,7 @@
 <div id="tip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="graph.js?v=2026-10-15"></script>
+<script src="graph.js?v=2026-10-15b"></script>
 <script>
 const G = window.GRAPH;
 const active = new Set(Object.keys(G.relations));
@@ -142,7 +147,7 @@ function moveTip(ev) {
   tip.style.top = Math.min(ev.clientY + 14, innerHeight - tip.offsetHeight - 8) + 'px';
 }
 function hideTip() { tip.style.display = 'none'; }
-const edgeTip = l => `<div class="t">${l.source.id} → ${l.target.id}</div>
+const edgeTip = l => `<div class="t">${l.source.id} → <i>${phrase(l)[0]}</i> → ${l.target.id}</div>
   <div class="hint" style="color:${G.relations[l.rel].color}">${G.relations[l.rel].label} · сила ${l.w}</div>${l.note || ''}`;
 
 // Панель логик
@@ -178,8 +183,8 @@ svg.append('defs').selectAll('marker').data(Object.entries(G.relations)).join('m
   .attr('id', d => 'arr-' + d[0]).attr('viewBox', '0 -4 8 8').attr('refX', 16)
   .attr('markerUnits', 'userSpaceOnUse').attr('markerWidth', 8).attr('markerHeight', 8).attr('orient', 'auto')
   .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', d => d[1].color);
-const linkLayer = root.append('g'), nodeLayer = root.append('g');
-let linkSel = linkLayer.selectAll('line'), nodeSel = nodeLayer.selectAll('g');
+const secLayer = root.append('g'), linkLayer = root.append('g'), edgeLblLayer = root.append('g'), nodeLayer = root.append('g');
+let linkSel = linkLayer.selectAll('line'), nodeSel = nodeLayer.selectAll('g'), edgeLblSel = edgeLblLayer.selectAll('text');
 
 const sim = d3.forceSimulation()
   .force('link', d3.forceLink().id(d => d.id).distance(d => 50 + (1 - d.w) * 120).strength(d => .08 + d.w * .3))
@@ -191,7 +196,7 @@ const sim = d3.forceSimulation()
     nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
   });
 
-const drag = d3.drag()
+const drag = d3.drag().filter(() => !focus)   // в фокусе раскладка фиксированная
   .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
   .on('drag',  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
   .on('end',   (ev, d) => { if (!ev.active) sim.alphaTarget(0); if (d !== center) { d.fx = null; d.fy = null; } });
@@ -218,8 +223,51 @@ function hiddenCount(n, vn) {
   return c;
 }
 
+// Подпись связи человеческими словами: [на линии, заголовок «откуда», заголовок «куда»]
+function phrase(l) {
+  const o = G.phraseOverrides[l.s + '|' + l.t];
+  if (o) return o;
+  for (const [rel, st, tt, line, fwd, back] of G.phrases)
+    if (rel === l.rel && (st === '*' || st === l.source.type) && (tt === '*' || tt === l.target.type)) return [line, fwd, back];
+  return ['→', 'Связано с', 'Связано с'];
+}
+
+// Режим фокуса: выбранный узел в центре, соседи вокруг секторами по логикам связи
+function focusLayout(n) {
+  const nbs = new Map();
+  for (const [nb, , l] of adj.get(n)) if (active.has(l.rel)) { const c = nbs.get(nb); if (!c || l.w > c.w) nbs.set(nb, l); }
+  const groups = Object.keys(G.relations)
+    .map(r => [r, [...nbs].filter(([, l]) => l.rel === r).sort((a, b) => b[1].w - a[1].w).map(([x]) => x)])
+    .filter(([, a]) => a.length);
+  const N = nbs.size;
+  const R = Math.max(150, Math.min(420, N * 11));
+  const rings = Math.max(1, Math.min(4, Math.ceil(N * 70 / (2 * Math.PI * R))));
+  const total = groups.reduce((t, [, a]) => t + Math.max(a.length, 1.5), 0);
+  const pos = new Map([[n, [0, 0]]]), sectors = [];
+  let ang = -Math.PI / 2;
+  for (const [rel, arr] of groups) {
+    const span = 2 * Math.PI * Math.max(arr.length, 1.5) / total;
+    arr.forEach((x, i) => {
+      const a = ang + span * (i + .5) / arr.length, rr = R + (i % rings) * 85;
+      pos.set(x, [Math.cos(a) * rr, Math.sin(a) * rr]);
+    });
+    sectors.push({ rel, a: ang + span / 2, r: R + (rings - 1) * 85 + 75 });
+    ang += span;
+  }
+  return { pos, sectors, extent: R + (rings - 1) * 85 + 75 + 150, N };   // +150: место под названия секторов
+}
+let focus = null;   // раскладка текущего фокуса
+
 function render() {
-  const { vn, vl } = visibleSets();
+  let vn, vl;
+  if (selected) {
+    focus = focusLayout(selected);
+    vn = new Set(focus.pos.keys());
+    vl = links.filter(l => active.has(l.rel) && (l.source === selected || l.target === selected));
+  } else {
+    focus = null;
+    ({ vn, vl } = visibleSets());
+  }
   // новые узлы появляются рядом с уже видимым соседом
   vn.forEach(n => {
     if (n.x !== undefined) return;
@@ -229,7 +277,7 @@ function render() {
   const vnArr = [...vn];
 
   linkSel = linkLayer.selectAll('line').data(vl, l => l.s + '|' + l.t + '|' + l.rel).join('line')
-    .attr('stroke', d => G.relations[d.rel].color).attr('stroke-opacity', .6)
+    .attr('stroke', d => G.relations[d.rel].color).attr('stroke-opacity', .65)
     .attr('stroke-width', d => 0.6 + d.w * 3).attr('marker-end', d => `url(#arr-${d.rel})`)
     .on('mouseenter', (ev, d) => showTip(ev, edgeTip(d))).on('mousemove', moveTip).on('mouseleave', hideTip);
 
@@ -237,32 +285,61 @@ function render() {
     const g = enter.append('g').attr('class', 'node').style('cursor', 'pointer').call(drag)
       .on('click', (ev, d) => { ev.stopPropagation(); onNodeClick(d); })
       .on('mouseenter', (ev, d) => showTip(ev, infoBlock(d, true))).on('mousemove', moveTip).on('mouseleave', hideTip);
-    g.append('circle').attr('r', radius).attr('fill', d => G.nodeTypes[d.type].color).attr('stroke', '#16181d').attr('stroke-width', 1.5);
-    g.append('text').attr('class', 'lbl').attr('dy', d => radius(d) + 12).attr('text-anchor', 'middle')
-      .style('font-weight', d => d === center ? 700 : 400).style('font-size', d => d === center ? '14px' : null).text(d => d.id);
-    g.append('circle').attr('class', 'badge').attr('r', 7).attr('cx', d => radius(d) * .75).attr('cy', d => -radius(d) * .75).attr('fill', '#f5f5f0');
-    g.append('text').attr('class', 'more').attr('x', d => radius(d) * .75).attr('y', d => -radius(d) * .75 + 3.5).attr('text-anchor', 'middle');
+    g.append('circle').attr('class', 'dot').attr('fill', d => G.nodeTypes[d.type].color).attr('stroke-width', 1.5);
+    g.append('text').attr('class', 'ico').attr('text-anchor', 'middle').attr('dy', '.35em').text(d => d.icon);
+    g.append('text').attr('class', 'lbl').attr('text-anchor', 'middle').text(d => d.id);
+    g.append('circle').attr('class', 'badge').attr('r', 6.5).attr('fill', '#f5f5f0');
+    g.append('text').attr('class', 'more').attr('text-anchor', 'middle');
     return g;
   });
-  nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
-  // значок «+N»: сколько связей можно раскрыть
+  // выбранный узел крупнее; значок «+N» — только в обзоре
+  const rr = d => d === selected ? Math.max(radius(d), 22) : radius(d);
+  nodeSel.select('.dot').attr('r', rr).attr('stroke', d => d === selected ? '#f5f5f0' : '#16181d');
+  nodeSel.select('.ico').style('font-size', d => Math.round(rr(d) * 1.1) + 'px');
+  nodeSel.select('.lbl').attr('dy', d => rr(d) + 13)
+    .style('font-size', d => d === selected || d === center ? '14px' : null)
+    .style('font-weight', d => d === selected || d === center ? 700 : 400);
   nodeSel.each(function (d) {
-    const h = mode === 'step' ? hiddenCount(d, vn) : 0;
-    d3.select(this).select('.badge').style('display', h ? null : 'none');
-    d3.select(this).select('.more').text(h ? (h > 99 ? '99+' : '+' + h) : '');
+    const h = !focus && mode === 'step' ? hiddenCount(d, vn) : 0, r = radius(d);
+    const g = d3.select(this);
+    g.select('.badge').style('display', h ? null : 'none').attr('cx', r + 5).attr('cy', -r);
+    g.select('.more').text(h ? (h > 99 ? '99+' : '+' + h) : '').attr('x', r + 5).attr('y', -r + 3.5);
   });
 
-  sim.nodes(vnArr);
-  sim.force('link').links(vl);
-  sim.alpha(.6).restart();
-  highlight();
-}
+  // подписи на линиях (в фокусе, если связей не слишком много) и названия секторов
+  const showLabels = focus && focus.N <= 40;
+  edgeLblSel = edgeLblLayer.selectAll('text').data(showLabels ? vl : [], l => l.s + '|' + l.t + '|' + l.rel).join('text')
+    .attr('class', 'elbl').attr('text-anchor', 'middle').style('fill', d => G.relations[d.rel].color).text(d => phrase(d)[0]);
+  secLayer.selectAll('text').data(focus ? focus.sectors : [], d => d.rel).join('text')
+    .attr('class', 'sec').style('fill', d => G.relations[d.rel].color)
+    .attr('text-anchor', d => Math.abs(Math.cos(d.a)) < .3 ? 'middle' : Math.cos(d.a) > 0 ? 'start' : 'end')
+    .attr('x', d => Math.cos(d.a) * d.r).attr('y', d => Math.sin(d.a) * d.r + 4)
+    .text(d => G.relations[d.rel].label);
 
-function highlight() {
-  const near = new Set();
-  if (selected) { near.add(selected); adj.get(selected).forEach(([nb, , l]) => { if (active.has(l.rel)) near.add(nb); }); }
-  linkSel.classed('dim', l => selected && l.source !== selected && l.target !== selected);
-  nodeSel.classed('dim', n => selected && !near.has(n));
+  if (focus) {
+    // фиксированная раскладка с плавным переходом
+    sim.stop();
+    const T = d3.transition().duration(550);
+    for (const [n, [x, y]] of focus.pos) { n.tx = x; n.ty = y; }
+    nodeSel.transition(T).attr('transform', d => `translate(${d.tx},${d.ty})`);
+    linkSel.transition(T).attr('x1', d => d.source.tx).attr('y1', d => d.source.ty).attr('x2', d => d.target.tx).attr('y2', d => d.target.ty);
+    edgeLblSel.attr('x', d => lblPos(d)[0]).attr('y', d => lblPos(d)[1]);
+    for (const [n, [x, y]] of focus.pos) { n.x = x; n.y = y; n.fx = null; n.fy = null; }
+    center.fx = center.x; center.fy = center.y;
+  } else {
+    center.fx = 0; center.fy = 0;
+    nodeSel.interrupt().attr('transform', d => `translate(${d.x},${d.y})`);
+    linkSel.interrupt();
+    sim.nodes(vnArr);
+    sim.force('link').links(vl);
+    sim.alpha(.6).restart();
+  }
+}
+// подпись ставим ближе к соседу, чтобы у центра не было каши
+function lblPos(l) {
+  const a = l.source === selected ? l.source : l.target, b = a === l.source ? l.target : l.source;
+  const t = .6;
+  return [a.tx + (b.tx - a.tx) * t, a.ty + (b.ty - a.ty) * t - 3];
 }
 
 function resize() {
@@ -287,11 +364,12 @@ function pathNodes(n) {
 function pathText(n) {
   const steps = pathNodes(n);
   if (!steps || !steps.length) return null;
-  // читаем от узла к молоку
-  let s = `<span data-go="${n.id}">${n.id}</span>`;
+  // читаем от узла к молоку, на каждом шаге — подпись связи
+  let s = `<span data-go="${n.id}">${n.icon} ${n.id}</span>`;
   for (let i = steps.length - 1; i >= 0; i--) {
-    const { from, l } = steps[i];
-    s += ` ${l.source === from ? '←' : '→'} <span data-go="${from.id}">${from.id}</span>`;
+    const { from, l } = steps[i], verb = phrase(l)[0];
+    const arrow = l.source === from ? `← <i class="hint">${verb}</i> ←` : `→ <i class="hint">${verb}</i> →`;
+    s += ` ${arrow} <span data-go="${from.id}">${from.icon} ${from.id}</span>`;
   }
   return s;
 }
@@ -343,49 +421,50 @@ function renderInfo() {
 }
 function cardHtml(n) {
   const mine = links.filter(l => (l.source === n || l.target === n) && active.has(l.rel));
-  const groups = {};
-  mine.forEach(l => (groups[l.rel] ??= []).push(l));
-  return `<div>${infoBlock(n, false)}</div>` +
-    Object.entries(groups).map(([rel, ls]) => `<div class="group"><b style="color:${G.relations[rel].color}">${G.relations[rel].label}</b><ul style="margin:0;padding-left:18px">` +
-      ls.sort((a, b) => b.w - a.w).map(l => {
-        const other = l.source === n ? l.target : l.source;
-        return `<li>${l.source === n ? '→' : '←'} <span data-go="${other.id}">${other.id}</span> · ${l.w}${l.note ? ' · ' + l.note : ''}</li>`;
-      }).join('') + '</ul></div>').join('');
+  // группы «заголовок: соседи» в порядке логик
+  const groups = new Map();
+  for (const rel of Object.keys(G.relations))
+    for (const l of mine.filter(l => l.rel === rel).sort((a, b) => b.w - a.w)) {
+      const out = l.source === n, other = out ? l.target : l.source;
+      const title = phrase(l)[out ? 1 : 2], key = rel + '|' + title;
+      if (!groups.has(key)) groups.set(key, { rel, title, items: [] });
+      groups.get(key).items.push(`<span data-go="${other.id}">${other.icon} ${other.id}</span>${l.note && !title.toLowerCase().includes(l.note) ? ` <span class="hint">(${l.note})</span>` : ''}`);
+    }
+  return `<div>${infoBlock(n, false)}</div><div class="ib-sec"><div class="h">Связи</div>` +
+    [...groups.values()].map(g => `<div class="story"><b style="color:${G.relations[g.rel].color}">${g.title}:</b> ${g.items.join(', ')}</div>`).join('') + '</div>';
 }
 for (const id of ['info', 'sheetBody', 'tip'])
   document.getElementById(id).addEventListener('click', e => { const go = e.target.dataset.go; if (go) select(byId[go], true); });
 document.getElementById('sheetClose').onclick = () => select(null);
 
-// Выбор узла: раскрывает путь к нему, центрирует, пишет в адрес ссылки
-// Нажатие: раскрыть узел → показать ещё соседей → снять выбор
+// Нажатие на узел: фокус на нём; повторное нажатие — назад к обзору
 function onNodeClick(d) {
-  if (mode === 'step') {
-    const { vn } = visibleSets();
-    if (!expanded.has(d)) { expanded.set(d, STEP); select(d, true); return; }
-    if (hiddenCount(d, vn)) { expanded.set(d, expanded.get(d) + STEP); select(d, false); return; }
-  }
-  select(selected === d ? null : d, false);
+  if (selected === d) { select(null); return; }
+  if (mode === 'step' && !expanded.has(d)) expanded.set(d, STEP);
+  select(d, true);
 }
-// Раскрыть цепочку от центра до узла, чтобы он стал видимым
+// Раскрыть цепочку от центра до узла, чтобы он остался виден в обзоре
 function reveal(n) {
   for (const { from, to } of pathNodes(n) || []) { pinned.add(from); pinned.add(to); }
   if (!expanded.has(n)) expanded.set(n, STEP);
 }
-function select(n, focus) {
+function select(n) {
   selected = n;
   if (n && mode === 'step') reveal(n);
   try { history.replaceState(null, '', n ? '#' + encodeURIComponent(n.id) : location.pathname + location.search); } catch (e) {}
   update();
-  if (n && focus && view === 'graph') {
-    const go = () => {
-      const s = Math.max(d3.zoomTransform(svg.node()).k, .9);
-      // карточка закрывает низ (телефон) или правый край (компьютер) — сдвигаем узел в свободную часть
-      const dy = mobile.matches ? svg.node().clientHeight * .22 / s : 0;
-      const dx = mobile.matches ? 0 : -190 / s;
-      svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.scale(s).translate(-n.x + dx, -n.y + dy));
-    };
-    setTimeout(go, 350);
-  }
+  if (view === 'graph') fitView();
+}
+// Камера: в фокусе — уместить соседей в свободную от карточки часть экрана; в обзоре — общий план
+function fitView() {
+  const W = svg.node().clientWidth, H = svg.node().clientHeight;
+  let k, ox = 0, oy = 0;
+  if (focus) {
+    const freeW = mobile.matches ? W : W - 390, freeH = mobile.matches ? H * .48 : H;
+    k = Math.max(.25, Math.min(1.1, (Math.min(freeW, freeH) / 2 - 10) / focus.extent));
+    ox = mobile.matches ? 0 : -195; oy = mobile.matches ? -H * .26 : 0;
+  } else k = mode === 'all' ? .45 : .9;
+  svg.transition().duration(550).call(zoom.transform, d3.zoomIdentity.translate(ox, oy).scale(k));
 }
 svg.on('click', () => select(null));
 
@@ -397,7 +476,7 @@ function update() {
 
 // Режимы графа
 function setMode(m) {
-  mode = m;
+  mode = m; selected = null;
   document.getElementById('mStep').classList.toggle('on', m === 'step');
   document.getElementById('mAll').classList.toggle('on', m === 'all');
   update();
