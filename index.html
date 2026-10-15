@@ -7,71 +7,110 @@
 <style>
   :root { --bg:#16181d; --panel:#1f222a; --text:#e8e8e8; --muted:#9aa0a6; --line:#2e323c; }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; display:flex; height:100vh; overflow:hidden; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; display:flex; height:100vh; height:100dvh; overflow:hidden; }
   aside { width:320px; padding:16px; background:var(--panel); border-right:1px solid var(--line); overflow:auto; flex-shrink:0; }
   h1 { font-size:18px; margin:0 0 4px; }
   h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:18px 0 8px; }
   label.rel, .rel { display:flex; align-items:center; gap:8px; padding:3px 0; cursor:pointer; }
   .sw { width:14px; height:14px; border-radius:3px; flex-shrink:0; }
   .count { margin-left:auto; color:var(--muted); font-size:12px; }
-  button { background:#2b2f39; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; margin-right:6px; }
+  button { background:#2b2f39; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; margin:0 6px 6px 0; font:inherit; font-size:13px; }
   button.on { background:#3d4452; border-color:#596173; }
   input[type=search] { width:100%; padding:6px 8px; background:#15171c; color:var(--text); border:1px solid var(--line); border-radius:6px; font:inherit; }
   .stats { color:var(--muted); font-size:12px; margin-top:6px; }
-  #info .group { margin:8px 0; }
-  #info .group b { display:block; font-size:12px; margin-bottom:2px; }
-  #info li { color:var(--muted); }
-  #info li span { color:var(--text); cursor:pointer; }
-  #info li span:hover { text-decoration:underline; }
+  .hint { color:var(--muted); font-size:12px; }
+  .group { margin:8px 0; }
+  .group b { display:block; font-size:12px; margin-bottom:2px; }
+  .group li { color:var(--muted); }
+  [data-go] { color:var(--text); cursor:pointer; }
+  [data-go]:hover { text-decoration:underline; }
   main { flex:1; position:relative; overflow:hidden; }
-  svg { width:100%; height:100%; display:block; }
+  svg { width:100%; height:100%; display:block; touch-action:none; }
   text { fill:var(--text); font-size:11px; pointer-events:none; paint-order:stroke; stroke:var(--bg); stroke-width:3px; }
-  .dim { opacity:.07; }
-  #tip { position:fixed; pointer-events:none; max-width:300px; background:#0f1115ee; border:1px solid var(--line); border-radius:8px;
+  .dim { opacity:.08; }
+  .more { fill:#16181d; font-size:10px; stroke:none; font-weight:700; }
+  #tip { position:fixed; pointer-events:none; max-width:340px; background:#0f1115ee; border:1px solid var(--line); border-radius:8px;
          padding:8px 10px; font-size:13px; display:none; z-index:10; box-shadow:0 4px 16px #0008; }
-  #tip .t { font-weight:600; } #tip .k { color:var(--muted); font-size:12px; margin-bottom:4px; }
-  #table { position:absolute; inset:0; overflow:auto; padding:16px; display:none; }
+  .t { font-weight:600; }
+  #table, #milk { position:absolute; inset:0; overflow:auto; padding:16px; display:none; }
   table { border-collapse:collapse; width:100%; font-size:13px; }
   th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); }
   th { position:sticky; top:0; background:var(--bg); cursor:pointer; color:var(--muted); }
-  @media (max-width: 700px) { body { flex-direction:column; } aside { width:100%; height:42vh; } }
+  .ib-type { display:inline-block; font-size:11px; padding:1px 7px; border-radius:10px; color:#16181d; margin:2px 0 6px; }
+  .ib-sec { margin-top:7px; }
+  .ib-sec .h { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:2px; }
+  .ib-sec a { color:#8fc1e3; }
+  .bar { display:grid; grid-template-columns:62px 1fr 64px; align-items:center; gap:6px; font-size:12px; margin:2px 0; }
+  .bar .track { height:6px; background:#2b2f39; border-radius:3px; overflow:hidden; }
+  .bar .fill { height:100%; border-radius:3px; }
+  .bar .v { text-align:right; color:var(--muted); }
+  .mgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px; }
+  .mcard { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; cursor:pointer; }
+  .mcard:hover { border-color:#596173; }
+  #hud { position:absolute; left:12px; top:12px; display:flex; flex-wrap:wrap; gap:0; z-index:5; }
+  #hud button { background:#1f222aee; }
+  #menuBtn, #sheet { display:none; }
+
+  /* Телефон: панель — выдвижная шторка, карточка узла — снизу */
+  @media (max-width: 700px) {
+    aside { position:fixed; inset:auto 0 0 0; width:100%; height:75dvh; z-index:20; border:0; border-top:1px solid var(--line);
+            border-radius:14px 14px 0 0; transform:translateY(100%); transition:transform .25s; }
+    body.menu aside { transform:none; }
+    aside #nodeSec { display:none; }
+    #menuBtn { display:block; position:absolute; right:12px; top:12px; z-index:6; background:#1f222aee; font-size:15px; }
+    #hud { right:80px; }
+    #sheet { position:fixed; left:0; right:0; bottom:0; max-height:52dvh; overflow:auto; z-index:15; background:var(--panel);
+             border-top:1px solid var(--line); border-radius:14px 14px 0 0; padding:14px 16px 20px; box-shadow:0 -6px 20px #0009; }
+    body.sheet #sheet { display:block; }
+    #sheetClose { position:sticky; top:0; float:right; margin:0; }
+    #tip { display:none !important; }
+    .bar { grid-template-columns:56px 1fr 60px; }
+  }
 </style>
 </head>
 <body>
 <aside>
   <h1>МОЛОКО</h1>
-  <div style="color:var(--muted)">Связи между людьми, животными, тарой, продуктами и всем, что вокруг молока. Наведите на узел или линию, чтобы увидеть подсказку.</div>
+  <div class="hint">Граф связей вокруг молока: люди, животные, тара, продукты, здоровье. Нажимайте на узлы, чтобы раскрывать их связи.</div>
   <div class="stats" id="stats"></div>
   <h2>Поиск</h2>
   <input type="search" id="q" placeholder="например: кумыс, бариста, тетрапак" list="names">
   <datalist id="names"></datalist>
   <h2>Вид</h2>
-  <button id="vGraph" class="on">граф</button><button id="vTable">таблица связей</button>
+  <button id="vGraph" class="on">граф</button><button id="vTable">таблица связей</button><button id="vMilk">виды молока</button>
   <h2>Логики связи</h2>
   <div id="rels"></div>
   <div style="margin-top:8px"><button id="all">все</button><button id="none">ни одной</button></div>
-  <h2>Узел</h2>
-  <div id="info" style="color:var(--muted)">Нажмите на узел, чтобы увидеть все его связи по типам.</div>
+  <div id="nodeSec">
+    <h2>Узел</h2>
+    <div id="info" class="hint">Нажмите на узел, чтобы увидеть инфоблок и все его связи.</div>
+  </div>
   <h2>Типы узлов</h2>
   <div id="types"></div>
 </aside>
 <main>
   <svg id="g"></svg>
+  <div id="hud">
+    <button id="mStep" class="on" title="Показывать только раскрытые узлы">по шагам</button><button id="mAll" title="Показать весь граф">весь граф</button><button id="reset" title="Свернуть всё к центру">↺ к центру</button>
+  </div>
+  <button id="menuBtn">☰</button>
   <div id="table"></div>
+  <div id="milk"></div>
 </main>
+<div id="sheet"><button id="sheetClose">✕</button><div id="sheetBody"></div></div>
 <div id="tip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="graph.js"></script>
+<script src="graph.js?v=2026-10-15"></script>
 <script>
 const G = window.GRAPH;
 const active = new Set(Object.keys(G.relations));
-let selected = null;
-let view = 'graph';
+const mobile = matchMedia('(max-width: 700px)');
+let selected = null, view = 'graph', mode = 'step';
 
-// Проверка данных: каждая связь ссылается на существующий узел
+// Проверка данных
 const ids = new Set(G.nodes.map(n => n.id));
-G.edges.forEach(e => { [e.s, e.t].forEach(x => { if (!ids.has(x)) console.warn('Нет узла:', x, e); }); });
+G.edges.forEach(e => [e.s, e.t].forEach(x => { if (!ids.has(x)) console.warn('Нет узла:', x, e); }));
 const dup = G.nodes.map(n => n.id).filter((x, i, a) => a.indexOf(x) !== i);
 if (dup.length) console.warn('Повторяющиеся узлы:', dup);
 
@@ -79,18 +118,28 @@ document.getElementById('stats').textContent =
   `${G.nodes.length} узлов · ${G.edges.length} связей · ${Object.keys(G.relations).length} логик`;
 document.getElementById('names').innerHTML = G.nodes.map(n => `<option value="${n.id}">`).join('');
 
-// Подсказки
+// Модель
+const nodes = G.nodes.map(n => ({ ...n, deg: 0 }));
+const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+const links = G.edges.filter(e => byId[e.s] && byId[e.t]).map(e => ({ ...e, source: byId[e.s], target: byId[e.t] }));
+links.forEach(l => { l.source.deg++; l.target.deg++; });
+const center = byId['молоко']; center.fx = 0; center.fy = 0; center.x = 0; center.y = 0;
+const radius = n => n === center ? 24 : 5 + Math.min(10, Math.sqrt(n.deg) * 1.6);
+const adj = new Map(nodes.map(n => [n, []]));
+links.forEach(l => { adj.get(l.source).push([l.target, '→', l]); adj.get(l.target).push([l.source, '←', l]); });
+const STEP = 12;                              // сколько соседей открывается за одно нажатие
+const expanded = new Map([[center, STEP]]);   // раскрытый узел → сколько его соседей показано
+
+// Подсказки (только мышь)
 const tip = document.getElementById('tip');
-function showTip(ev, html) { tip.innerHTML = html; tip.style.display = 'block'; moveTip(ev); }
+function showTip(ev, html) { if (mobile.matches) return; tip.innerHTML = html; tip.style.display = 'block'; moveTip(ev); }
 function moveTip(ev) {
-  const x = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8);
-  const y = Math.min(ev.clientY + 14, innerHeight - tip.offsetHeight - 8);
-  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  tip.style.left = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px';
+  tip.style.top = Math.min(ev.clientY + 14, innerHeight - tip.offsetHeight - 8) + 'px';
 }
 function hideTip() { tip.style.display = 'none'; }
-const nodeTip = n => `<div class="t">${n.id}</div><div class="k">${G.nodeTypes[n.type].label} · связей: ${n.deg}</div>${n.info || ''}`;
 const edgeTip = l => `<div class="t">${l.source.id} → ${l.target.id}</div>
-  <div class="k" style="color:${G.relations[l.rel].color}">${G.relations[l.rel].label} · сила ${l.w}</div>${l.note || ''}`;
+  <div class="hint" style="color:${G.relations[l.rel].color}">${G.relations[l.rel].label} · сила ${l.w}</div>${l.note || ''}`;
 
 // Панель логик
 const relsEl = document.getElementById('rels');
@@ -120,40 +169,16 @@ document.getElementById('types').innerHTML = Object.entries(G.nodeTypes)
 const svg = d3.select('#g');
 const root = svg.append('g');
 const zoom = d3.zoom().scaleExtent([.15, 4]).on('zoom', ev => root.attr('transform', ev.transform));
-svg.call(zoom);
+svg.call(zoom).on('dblclick.zoom', null);
 svg.append('defs').selectAll('marker').data(Object.entries(G.relations)).join('marker')
   .attr('id', d => 'arr-' + d[0]).attr('viewBox', '0 -4 8 8').attr('refX', 16)
   .attr('markerUnits', 'userSpaceOnUse').attr('markerWidth', 8).attr('markerHeight', 8).attr('orient', 'auto')
   .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', d => d[1].color);
+const linkLayer = root.append('g'), nodeLayer = root.append('g');
+let linkSel = linkLayer.selectAll('line'), nodeSel = nodeLayer.selectAll('g');
 
-const nodes = G.nodes.map(n => ({ ...n, deg: 0 }));
-const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
-const links = G.edges.filter(e => byId[e.s] && byId[e.t]).map(e => ({ ...e, source: e.s, target: e.t }));
-links.forEach(l => { byId[l.s].deg++; byId[l.t].deg++; });
-const center = byId['молоко']; center.fx = 0; center.fy = 0;
-const radius = n => n === center ? 24 : 5 + Math.min(10, Math.sqrt(n.deg) * 1.6);
-
-const linkSel = root.append('g').selectAll('line').data(links).join('line')
-  .attr('stroke', d => G.relations[d.rel].color).attr('stroke-opacity', .6)
-  .attr('stroke-width', d => 0.6 + d.w * 3).attr('marker-end', d => `url(#arr-${d.rel})`)
-  .on('mouseenter', (ev, d) => showTip(ev, edgeTip(d))).on('mousemove', moveTip).on('mouseleave', hideTip);
-
-const nodeSel = root.append('g').selectAll('g').data(nodes).join('g').style('cursor', 'pointer')
-  .call(d3.drag()
-    .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
-    .on('drag',  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-    .on('end',   (ev, d) => { if (!ev.active) sim.alphaTarget(0); if (d !== center) { d.fx = null; d.fy = null; } }))
-  .on('click', (ev, d) => { select(selected === d ? null : d); ev.stopPropagation(); })
-  .on('mouseenter', (ev, d) => showTip(ev, nodeTip(d))).on('mousemove', moveTip).on('mouseleave', hideTip);
-svg.on('click', () => select(null));
-
-nodeSel.append('circle').attr('r', radius)
-  .attr('fill', d => G.nodeTypes[d.type].color).attr('stroke', '#16181d').attr('stroke-width', 1.5);
-nodeSel.append('text').attr('dy', d => radius(d) + 12).attr('text-anchor', 'middle')
-  .style('font-weight', d => d === center ? 700 : 400).style('font-size', d => d === center ? '14px' : null).text(d => d.id);
-
-const sim = d3.forceSimulation(nodes)
-  .force('link', d3.forceLink(links).id(d => d.id).distance(d => 50 + (1 - d.w) * 120).strength(d => .08 + d.w * .3))
+const sim = d3.forceSimulation()
+  .force('link', d3.forceLink().id(d => d.id).distance(d => 50 + (1 - d.w) * 120).strength(d => .08 + d.w * .3))
   .force('charge', d3.forceManyBody().strength(-260))
   .force('collide', d3.forceCollide(d => radius(d) + 14))
   .force('x', d3.forceX(0).strength(.02)).force('y', d3.forceY(0).strength(.02))
@@ -162,60 +187,232 @@ const sim = d3.forceSimulation(nodes)
     nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
   });
 
+const drag = d3.drag()
+  .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+  .on('drag',  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+  .on('end',   (ev, d) => { if (!ev.active) sim.alphaTarget(0); if (d !== center) { d.fx = null; d.fy = null; } });
+
+// Какие узлы и связи сейчас на экране
+function visibleSets() {
+  const vl = links.filter(l => active.has(l.rel));
+  if (mode === 'all') {
+    const vn = new Set([center]); vl.forEach(l => { vn.add(l.source); vn.add(l.target); });
+    return { vn, vl };
+  }
+  // у каждого раскрытого узла видны его самые сильные соседи (сколько — в expanded)
+  const vn = new Set(expanded.keys());
+  for (const [n, limit] of expanded) {
+    const nbs = new Map();
+    for (const [nb, , l] of adj.get(n)) if (active.has(l.rel)) nbs.set(nb, Math.max(nbs.get(nb) || 0, l.w));
+    [...nbs].sort((a, b) => b[1] - a[1]).slice(0, limit).forEach(([nb]) => vn.add(nb));
+  }
+  return { vn, vl: vl.filter(l => vn.has(l.source) && vn.has(l.target)) };
+}
+// Сколько соседей узла ещё скрыто (для значка «+N»)
+function hiddenCount(n, vn) {
+  let c = 0; for (const [nb, , l] of adj.get(n)) if (active.has(l.rel) && !vn.has(nb)) c++;
+  return c;
+}
+
+function render() {
+  const { vn, vl } = visibleSets();
+  // новые узлы появляются рядом с уже видимым соседом
+  vn.forEach(n => {
+    if (n.x !== undefined) return;
+    const p = adj.get(n).map(a => a[0]).find(x => x.x !== undefined && vn.has(x)) || center;
+    n.x = p.x + (Math.random() - .5) * 60; n.y = p.y + (Math.random() - .5) * 60;
+  });
+  const vnArr = [...vn];
+
+  linkSel = linkLayer.selectAll('line').data(vl, l => l.s + '|' + l.t + '|' + l.rel).join('line')
+    .attr('stroke', d => G.relations[d.rel].color).attr('stroke-opacity', .6)
+    .attr('stroke-width', d => 0.6 + d.w * 3).attr('marker-end', d => `url(#arr-${d.rel})`)
+    .on('mouseenter', (ev, d) => showTip(ev, edgeTip(d))).on('mousemove', moveTip).on('mouseleave', hideTip);
+
+  nodeSel = nodeLayer.selectAll('g.node').data(vnArr, d => d.id).join(enter => {
+    const g = enter.append('g').attr('class', 'node').style('cursor', 'pointer').call(drag)
+      .on('click', (ev, d) => { ev.stopPropagation(); onNodeClick(d); })
+      .on('mouseenter', (ev, d) => showTip(ev, infoBlock(d, true))).on('mousemove', moveTip).on('mouseleave', hideTip);
+    g.append('circle').attr('r', radius).attr('fill', d => G.nodeTypes[d.type].color).attr('stroke', '#16181d').attr('stroke-width', 1.5);
+    g.append('text').attr('class', 'lbl').attr('dy', d => radius(d) + 12).attr('text-anchor', 'middle')
+      .style('font-weight', d => d === center ? 700 : 400).style('font-size', d => d === center ? '14px' : null).text(d => d.id);
+    g.append('circle').attr('class', 'badge').attr('r', 7).attr('cx', d => radius(d) * .75).attr('cy', d => -radius(d) * .75).attr('fill', '#f5f5f0');
+    g.append('text').attr('class', 'more').attr('x', d => radius(d) * .75).attr('y', d => -radius(d) * .75 + 3.5).attr('text-anchor', 'middle');
+    return g;
+  });
+  nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+  // значок «+N»: сколько связей можно раскрыть
+  nodeSel.each(function (d) {
+    const h = mode === 'step' ? hiddenCount(d, vn) : 0;
+    d3.select(this).select('.badge').style('display', h ? null : 'none');
+    d3.select(this).select('.more').text(h ? (h > 99 ? '99+' : '+' + h) : '');
+  });
+
+  sim.nodes(vnArr);
+  sim.force('link').links(vl);
+  sim.alpha(.6).restart();
+  highlight();
+}
+
+function highlight() {
+  const near = new Set();
+  if (selected) { near.add(selected); adj.get(selected).forEach(([nb, , l]) => { if (active.has(l.rel)) near.add(nb); }); }
+  linkSel.classed('dim', l => selected && l.source !== selected && l.target !== selected);
+  nodeSel.classed('dim', n => selected && !near.has(n));
+}
+
 function resize() {
   const { width, height } = svg.node().getBoundingClientRect();
   svg.attr('viewBox', [-width / 2, -height / 2, width, height]);
 }
 addEventListener('resize', resize); resize();
-svg.call(zoom.transform, d3.zoomIdentity.scale(.45));
 
-function select(n) {
-  selected = n; update();
-  if (n && view === 'graph') {
-    const s = Math.max(d3.zoomTransform(svg.node()).k, .9);
-    svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.scale(s).translate(-n.x, -n.y));
+// Путь от «молока» к узлу (BFS по всем связям)
+function pathNodes(n) {
+  const prev = new Map([[center, null]]), q = [center];
+  while (q.length) {
+    const cur = q.shift();
+    if (cur === n) break;
+    for (const [nb, , l] of adj.get(cur)) if (!prev.has(nb)) { prev.set(nb, [cur, l]); q.push(nb); }
   }
+  if (!prev.has(n)) return null;
+  const steps = []; let cur = n;
+  while (prev.get(cur)) { const [p, l] = prev.get(cur); steps.unshift({ from: p, to: cur, l }); cur = p; }
+  return steps;
+}
+function pathText(n) {
+  const steps = pathNodes(n);
+  if (!steps || !steps.length) return null;
+  // читаем от узла к молоку
+  let s = `<span data-go="${n.id}">${n.id}</span>`;
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const { from, l } = steps[i];
+    s += ` ${l.source === from ? '←' : '→'} <span data-go="${from.id}">${from.id}</span>`;
+  }
+  return s;
 }
 
-function update() {
-  const vis = l => active.has(l.rel);
-  const touched = new Set();
-  links.forEach(l => { if (vis(l)) { touched.add(l.source.id); touched.add(l.target.id); } });
-  const near = new Set();
-  if (selected) { near.add(selected.id); links.forEach(l => { if (vis(l) && (l.source === selected || l.target === selected)) { near.add(l.source.id); near.add(l.target.id); } }); }
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  return n + ' ' + (m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many);
+}
 
-  linkSel.style('display', l => vis(l) ? null : 'none')
-    .classed('dim', l => selected && l.source !== selected && l.target !== selected);
-  nodeSel.style('display', n => touched.has(n.id) || n === center ? null : 'none')
-    .classed('dim', n => selected && !near.has(n.id));
+// Шкалы состава видов молока
+const F = Object.values(G.milkFacts || {});
+const fmax = k => Math.max(...F.map(f => f[k]));
+const BARS = [['fat', 'жир', 'г', '#e8d36b'], ['protein', 'белок', 'г', '#4fb3a9'], ['lactose', 'лактоза', 'г', '#9fa8da'],
+              ['kcal', 'энергия', 'ккал', '#ef8a8a'], ['calcium', 'кальций', 'мг', '#8fc1e3']];
+const factsBars = f => BARS.map(([k, t, u, c]) =>
+  `<div class="bar"><span>${t}</span><div class="track"><div class="fill" style="width:${Math.max(3, f[k] / fmax(k) * 100)}%;background:${c}"></div></div><span class="v">${f[k]} ${u}</span></div>`).join('');
+const srcLinks = f => (f.src || []).map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.name}</a>`).join(', ');
+
+// Инфоблок узла
+function infoBlock(n, compact) {
+  const t = G.nodeTypes[n.type];
+  const mine = links.filter(l => l.source === n || l.target === n);
+  const rels = [...new Set(mine.map(l => l.rel))];
+  const top = [...mine].sort((a, b) => b.w - a.w).slice(0, 3)
+    .map(l => (l.source === n ? '→ ' + l.target.id : '← ' + l.source.id)).join(', ');
+  const path = n === center ? null : pathText(n);
+  let h = `<div class="t" style="font-size:${compact ? 14 : 16}px">${n.id}</div>
+    <span class="ib-type" style="background:${t.color}">${t.label}</span>
+    <div>${n.info || ''}</div>`;
+  if (n.facts) {
+    const f = n.facts;
+    h += `<div class="ib-sec"><div class="h">Состав на 100 г${f.range ? ' · ' + f.range : ''}</div>${factsBars(f)}</div>
+      <div class="ib-sec"><div class="h">Ценность</div>${f.value}<div class="hint">Цена / доступность: ${f.price}</div></div>
+      <div class="ib-sec"><div class="h">Польза</div>${f.benefit}</div>` +
+      (f.src && !compact ? `<div class="ib-sec"><div class="h">Источники</div><div class="hint">${srcLinks(f)}</div></div>` : '');
+  }
+  if (path) h += `<div class="ib-sec"><div class="h">Как связано с молоком</div><div style="font-size:12px">${path}</div></div>`;
+  h += `<div class="ib-sec"><div class="h">В графе</div><div style="font-size:12px">${plural(mine.length, 'связь', 'связи', 'связей')}, ${plural(rels.length, 'логика', 'логики', 'логик')}: ${rels.map(r => G.relations[r].label.toLowerCase()).join(', ')}</div>` +
+       (compact && top ? `<div class="hint">Сильнее всего: ${top}</div>` : '') + '</div>';
+  return h;
+}
+
+// Карточка узла: слева на компьютере, снизу на телефоне
+function renderInfo() {
+  const html = selected ? cardHtml(selected) : '';
+  document.getElementById('info').innerHTML = html || 'Нажмите на узел, чтобы увидеть инфоблок и все его связи.';
+  document.getElementById('sheetBody').innerHTML = html;
+  document.body.classList.toggle('sheet', !!selected && mobile.matches && view === 'graph');
+}
+function cardHtml(n) {
+  const mine = links.filter(l => (l.source === n || l.target === n) && active.has(l.rel));
+  const groups = {};
+  mine.forEach(l => (groups[l.rel] ??= []).push(l));
+  return `<div>${infoBlock(n, false)}</div>` +
+    Object.entries(groups).map(([rel, ls]) => `<div class="group"><b style="color:${G.relations[rel].color}">${G.relations[rel].label}</b><ul style="margin:0;padding-left:18px">` +
+      ls.sort((a, b) => b.w - a.w).map(l => {
+        const other = l.source === n ? l.target : l.source;
+        return `<li>${l.source === n ? '→' : '←'} <span data-go="${other.id}">${other.id}</span> · ${l.w}${l.note ? ' · ' + l.note : ''}</li>`;
+      }).join('') + '</ul></div>').join('');
+}
+for (const id of ['info', 'sheetBody', 'tip'])
+  document.getElementById(id).addEventListener('click', e => { const go = e.target.dataset.go; if (go) select(byId[go], true); });
+document.getElementById('sheetClose').onclick = () => select(null);
+
+// Выбор узла: раскрывает путь к нему, центрирует, пишет в адрес ссылки
+// Нажатие: раскрыть узел → показать ещё соседей → снять выбор
+function onNodeClick(d) {
+  if (mode === 'step') {
+    const { vn } = visibleSets();
+    if (!expanded.has(d)) { expanded.set(d, STEP); select(d, true); return; }
+    if (hiddenCount(d, vn)) { expanded.set(d, expanded.get(d) + STEP); select(d, false); return; }
+  }
+  select(selected === d ? null : d, false);
+}
+// Раскрыть цепочку от центра до узла, чтобы он стал видимым
+function reveal(n) {
+  for (const { from, to } of pathNodes(n) || [])
+    expanded.set(from, Math.max(expanded.get(from) || 0, rankOf(from, to)));
+  if (!expanded.has(n)) expanded.set(n, STEP);
+}
+// Место соседа в списке «по силе связи» (1 = самый сильный)
+function rankOf(n, nb) {
+  const nbs = new Map();
+  for (const [x, , l] of adj.get(n)) if (active.has(l.rel)) nbs.set(x, Math.max(nbs.get(x) || 0, l.w));
+  return [...nbs].sort((a, b) => b[1] - a[1]).findIndex(([x]) => x === nb) + 1;
+}
+function select(n, focus) {
+  selected = n;
+  if (n && mode === 'step') reveal(n);
+  try { history.replaceState(null, '', n ? '#' + encodeURIComponent(n.id) : location.pathname + location.search); } catch (e) {}
+  update();
+  if (n && focus && view === 'graph') {
+    const go = () => {
+      const s = Math.max(d3.zoomTransform(svg.node()).k, .9);
+      const dy = mobile.matches ? svg.node().clientHeight * .22 / s : 0; // на телефоне карточка закрывает низ
+      svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.scale(s).translate(-n.x, -n.y + dy));
+    };
+    setTimeout(go, 350);
+  }
+}
+svg.on('click', () => select(null));
+
+function update() {
+  if (view === 'graph') render();
   renderInfo();
   if (view === 'table') renderTable();
 }
 
-// Карточка узла
-function renderInfo() {
-  const el = document.getElementById('info');
-  if (!selected) { el.innerHTML = 'Нажмите на узел, чтобы увидеть все его связи по типам.'; return; }
-  const mine = links.filter(l => l.source === selected || l.target === selected);
-  const groups = {};
-  mine.forEach(l => (groups[l.rel] ??= []).push(l));
-  el.innerHTML = `<div style="color:var(--text);font-size:16px;font-weight:600">${selected.id}</div>
-    <div>${G.nodeTypes[selected.type].label} · ${mine.length} связей · ${Object.keys(groups).length} тип(а)</div>
-    <div style="color:var(--text);margin:6px 0">${selected.info || ''}</div>` +
-    Object.entries(groups).map(([rel, ls]) => `<div class="group"><b style="color:${G.relations[rel].color}">${G.relations[rel].label}</b><ul style="margin:0;padding-left:18px">` +
-      ls.sort((a, b) => b.w - a.w).map(l => {
-        const other = l.source === selected ? l.target : l.source;
-        const arrow = l.source === selected ? '→' : '←';
-        return `<li>${arrow} <span data-go="${other.id}">${other.id}</span> · ${l.w}${l.note ? ' · ' + l.note : ''}</li>`;
-      }).join('') + '</ul></div>').join('');
+// Режимы графа
+function setMode(m) {
+  mode = m;
+  document.getElementById('mStep').classList.toggle('on', m === 'step');
+  document.getElementById('mAll').classList.toggle('on', m === 'all');
+  update();
+  svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.scale(m === 'all' ? .45 : .9));
 }
-document.getElementById('info').addEventListener('click', e => { const go = e.target.dataset.go; if (go) select(byId[go]); });
+document.getElementById('mStep').onclick = () => setMode('step');
+document.getElementById('mAll').onclick = () => setMode('all');
+document.getElementById('reset').onclick = () => { expanded.clear(); expanded.set(center, STEP); selected = null; setMode('step'); select(null); };
 
 // Поиск
 document.getElementById('q').addEventListener('change', e => {
   const v = e.target.value.trim().toLowerCase();
   const n = byId[v] || nodes.find(n => n.id.toLowerCase().includes(v));
-  if (n) select(n);
+  if (n) { if (view !== 'graph') setView('graph'); document.body.classList.remove('menu'); select(n, true); }
 });
 
 // Таблица всех связей
@@ -233,24 +430,60 @@ function renderTable() {
     cols.map(([k, t]) => `<th data-k="${k}">${t}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>' +
     rows.map(l => `<tr><td>${l.source.id}</td><td>${l.target.id}</td>
       <td><span class="sw" style="display:inline-block;vertical-align:-2px;background:${G.relations[l.rel].color}"></span> ${G.relations[l.rel].label}</td>
-      <td>${l.w}</td><td style="color:var(--muted)">${l.note || ''}</td></tr>`).join('') + '</tbody></table>';
+      <td>${l.w}</td><td class="hint">${l.note || ''}</td></tr>`).join('') + '</tbody></table>';
 }
 document.getElementById('table').addEventListener('click', e => {
   const k = e.target.dataset.k; if (!k || k === 'note') return;
   sortDir = sortKey === k ? -sortDir : 1; sortKey = k; renderTable();
 });
+
+// Сравнение видов молока
+function renderMilk() {
+  const types = nodes.filter(n => n.facts);
+  document.getElementById('milk').innerHTML =
+    `<h2 style="margin-top:0">Виды молока по происхождению</h2>
+     <div class="stats" style="margin-bottom:12px">Средние значения на 100 г; у пород, сезона, корма и стадии лактации большой разброс. Полоса — доля от максимума среди видов. Нажмите на карточку, чтобы открыть узел в графе.</div>
+     <div class="mgrid">` + types.map(n => {
+      const f = n.facts;
+      return `<div class="mcard" data-card="${n.id}"><div class="t" style="font-size:15px">${n.id}</div>
+        <div class="stats" style="margin:2px 0 8px">${n.info}</div>${factsBars(f)}
+        <div class="ib-sec"><div class="h">Ценность</div>${f.value}</div>
+        <div class="ib-sec"><div class="h">Польза</div>${f.benefit}</div>
+        <div class="stats">Цена / доступность: ${f.price}</div>` +
+        (f.src ? `<div class="stats">Источники: ${srcLinks(f)}</div>` : '') + `</div>`;
+    }).join('') + '</div>';
+}
+document.getElementById('milk').addEventListener('click', e => {
+  if (e.target.closest('a')) return;
+  const c = e.target.closest('[data-card]'); if (c) { setView('graph'); select(byId[c.dataset.card], true); }
+});
+
 function setView(v) {
   view = v;
-  document.getElementById('vGraph').classList.toggle('on', v === 'graph');
-  document.getElementById('vTable').classList.toggle('on', v === 'table');
+  for (const [id, k] of [['vGraph', 'graph'], ['vTable', 'table'], ['vMilk', 'milk']])
+    document.getElementById(id).classList.toggle('on', v === k);
   document.getElementById('table').style.display = v === 'table' ? 'block' : 'none';
+  document.getElementById('milk').style.display = v === 'milk' ? 'block' : 'none';
+  document.getElementById('hud').style.display = v === 'graph' ? null : 'none';
   svg.style('display', v === 'graph' ? null : 'none');
+  document.body.classList.remove('menu');
+  if (v === 'milk') renderMilk();
   update();
 }
 document.getElementById('vGraph').onclick = () => setView('graph');
 document.getElementById('vTable').onclick = () => setView('table');
+document.getElementById('vMilk').onclick = () => setView('milk');
+document.getElementById('menuBtn').onclick = () => document.body.classList.toggle('menu');
+document.querySelector('main').addEventListener('click', e => { if (!e.target.closest('#menuBtn')) document.body.classList.remove('menu'); });
 
-update();
+// Старт: узел из ссылки (#кумыс) или центр
+svg.call(zoom.transform, d3.zoomIdentity.scale(.9));
+function fromHash() {
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (byId[id]) select(byId[id], true); else update();
+}
+addEventListener('hashchange', fromHash);
+fromHash();
 </script>
 </body>
 </html>
