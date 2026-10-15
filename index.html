@@ -49,7 +49,12 @@
   .mcard:hover { border-color:#596173; }
   #hud { position:absolute; left:12px; top:12px; display:flex; flex-wrap:wrap; gap:0; z-index:5; }
   #hud button { background:#1f222aee; }
-  #menuBtn, #sheet { display:none; }
+  #menuBtn, #sheet, #nodeSec { display:none; }
+  /* Компьютер: карточка узла — справа поверх графа */
+  #sheet { position:fixed; right:16px; top:16px; width:360px; max-height:calc(100dvh - 32px); overflow:auto; z-index:15;
+           background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px 18px; box-shadow:0 6px 24px #000a; }
+  body.sheet #sheet { display:block; }
+  #sheetClose { position:sticky; top:0; float:right; margin:0; }
 
   /* Телефон: панель — выдвижная шторка, карточка узла — снизу */
   @media (max-width: 700px) {
@@ -59,10 +64,8 @@
     aside #nodeSec { display:none; }
     #menuBtn { display:block; position:absolute; right:12px; top:12px; z-index:6; background:#1f222aee; font-size:15px; }
     #hud { right:80px; }
-    #sheet { position:fixed; left:0; right:0; bottom:0; max-height:52dvh; overflow:auto; z-index:15; background:var(--panel);
-             border-top:1px solid var(--line); border-radius:14px 14px 0 0; padding:14px 16px 20px; box-shadow:0 -6px 20px #0009; }
-    body.sheet #sheet { display:block; }
-    #sheetClose { position:sticky; top:0; float:right; margin:0; }
+    #sheet { left:0; right:0; top:auto; bottom:0; width:auto; max-height:52dvh; border:0; border-top:1px solid var(--line);
+             border-radius:14px 14px 0 0; padding:14px 16px 20px; box-shadow:0 -6px 20px #0009; }
     #tip { display:none !important; }
     .bar { grid-template-columns:56px 1fr 60px; }
   }
@@ -129,6 +132,7 @@ const adj = new Map(nodes.map(n => [n, []]));
 links.forEach(l => { adj.get(l.source).push([l.target, '→', l]); adj.get(l.target).push([l.source, '←', l]); });
 const STEP = 12;                              // сколько соседей открывается за одно нажатие
 const expanded = new Map([[center, STEP]]);   // раскрытый узел → сколько его соседей показано
+const pinned = new Set();                     // узлы на пути к выбранному: видны всегда
 
 // Подсказки (только мышь)
 const tip = document.getElementById('tip');
@@ -200,7 +204,7 @@ function visibleSets() {
     return { vn, vl };
   }
   // у каждого раскрытого узла видны его самые сильные соседи (сколько — в expanded)
-  const vn = new Set(expanded.keys());
+  const vn = new Set([...expanded.keys(), ...pinned]);
   for (const [n, limit] of expanded) {
     const nbs = new Map();
     for (const [nb, , l] of adj.get(n)) if (active.has(l.rel)) nbs.set(nb, Math.max(nbs.get(nb) || 0, l.w));
@@ -335,7 +339,7 @@ function renderInfo() {
   const html = selected ? cardHtml(selected) : '';
   document.getElementById('info').innerHTML = html || 'Нажмите на узел, чтобы увидеть инфоблок и все его связи.';
   document.getElementById('sheetBody').innerHTML = html;
-  document.body.classList.toggle('sheet', !!selected && mobile.matches && view === 'graph');
+  document.body.classList.toggle('sheet', !!selected && view === 'graph');
 }
 function cardHtml(n) {
   const mine = links.filter(l => (l.source === n || l.target === n) && active.has(l.rel));
@@ -364,15 +368,8 @@ function onNodeClick(d) {
 }
 // Раскрыть цепочку от центра до узла, чтобы он стал видимым
 function reveal(n) {
-  for (const { from, to } of pathNodes(n) || [])
-    expanded.set(from, Math.max(expanded.get(from) || 0, rankOf(from, to)));
+  for (const { from, to } of pathNodes(n) || []) { pinned.add(from); pinned.add(to); }
   if (!expanded.has(n)) expanded.set(n, STEP);
-}
-// Место соседа в списке «по силе связи» (1 = самый сильный)
-function rankOf(n, nb) {
-  const nbs = new Map();
-  for (const [x, , l] of adj.get(n)) if (active.has(l.rel)) nbs.set(x, Math.max(nbs.get(x) || 0, l.w));
-  return [...nbs].sort((a, b) => b[1] - a[1]).findIndex(([x]) => x === nb) + 1;
 }
 function select(n, focus) {
   selected = n;
@@ -382,8 +379,10 @@ function select(n, focus) {
   if (n && focus && view === 'graph') {
     const go = () => {
       const s = Math.max(d3.zoomTransform(svg.node()).k, .9);
-      const dy = mobile.matches ? svg.node().clientHeight * .22 / s : 0; // на телефоне карточка закрывает низ
-      svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.scale(s).translate(-n.x, -n.y + dy));
+      // карточка закрывает низ (телефон) или правый край (компьютер) — сдвигаем узел в свободную часть
+      const dy = mobile.matches ? svg.node().clientHeight * .22 / s : 0;
+      const dx = mobile.matches ? 0 : -190 / s;
+      svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.scale(s).translate(-n.x + dx, -n.y + dy));
     };
     setTimeout(go, 350);
   }
@@ -406,7 +405,7 @@ function setMode(m) {
 }
 document.getElementById('mStep').onclick = () => setMode('step');
 document.getElementById('mAll').onclick = () => setMode('all');
-document.getElementById('reset').onclick = () => { expanded.clear(); expanded.set(center, STEP); selected = null; setMode('step'); select(null); };
+document.getElementById('reset').onclick = () => { expanded.clear(); expanded.set(center, STEP); pinned.clear(); selected = null; setMode('step'); select(null); };
 
 // Поиск
 document.getElementById('q').addEventListener('change', e => {
