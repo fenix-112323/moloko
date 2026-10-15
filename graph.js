@@ -784,5 +784,5 @@
     "холодовая цепь|холодильник": ["нужна в", "Где нужна", "Что требует"]
   };
 
-  window.GRAPH = { nodeTypes, relations, nodes, edges, milkFacts, phrases, phraseOverrides };
+  window.GRAPH = { nodeTypes, relations, nodes, edges, milkFacts, phrases, phraseOverrides, typeIcons };
 })();

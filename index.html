@@ -28,7 +28,16 @@
   svg { width:100%; height:100%; display:block; touch-action:none; }
   text { fill:var(--text); font-size:11px; pointer-events:none; paint-order:stroke; stroke:var(--bg); stroke-width:3px; }
   .dim { opacity:.08; }
-  .more { fill:#16181d; font-size:10px; stroke:none; font-weight:700; }
+  .more { fill:#16181d; font-size:8.5px; stroke:none; font-weight:700; }
+  .howto { margin:10px 0 0; padding-left:18px; font-size:12.5px; color:var(--muted); }
+  .howto li { margin:3px 0; } .howto b { color:var(--text); font-weight:600; }
+  details { margin-top:16px; border-top:1px solid var(--line); padding-top:10px; }
+  summary { cursor:pointer; font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); display:flex; gap:6px; align-items:center; }
+  summary::before { content:'▸'; } details[open] > summary::before { content:'▾'; }
+  summary::-webkit-details-marker { display:none; }
+  details > :not(summary) { margin-top:8px; }
+  .faded .lbl { opacity:0; transition:opacity .2s; }
+  .faded:hover .lbl { opacity:1; }
   .ico { stroke:none; pointer-events:none; }
   .elbl { font-size:10px; font-style:italic; stroke-width:3px; }
   .sec { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; stroke-width:4px; }
@@ -78,23 +87,32 @@
 </head>
 <body>
 <aside>
-  <h1>МОЛОКО</h1>
-  <div class="hint">Граф связей вокруг молока: люди, животные, тара, продукты, здоровье. Нажимайте на узлы, чтобы раскрывать их связи.</div>
-  <div class="stats" id="stats"></div>
+  <h1>🥛 МОЛОКО</h1>
+  <div class="hint">Граф связей вокруг молока: животные, люди, тара, продукты, здоровье.</div>
+  <ul class="howto">
+    <li><b>Нажмите на узел</b> — он встанет в центр, вокруг его связи, справа карточка с описанием.</li>
+    <li><b>Нажмите на соседа</b> или на название в карточке — перейдёте к нему.</li>
+    <li><b>Повторное нажатие</b> или ✕ — назад к общему виду. Значок «+N» — сколько связей ещё скрыто.</li>
+  </ul>
   <h2>Поиск</h2>
   <input type="search" id="q" placeholder="например: кумыс, бариста, тетрапак" list="names">
   <datalist id="names"></datalist>
   <h2>Вид</h2>
   <button id="vGraph" class="on">граф</button><button id="vTable">таблица связей</button><button id="vMilk">виды молока</button>
-  <h2>Логики связи</h2>
-  <div id="rels"></div>
-  <div style="margin-top:8px"><button id="all">все</button><button id="none">ни одной</button></div>
+  <details id="filters">
+    <summary>Фильтры: логики связи <span id="relCount" class="count"></span></summary>
+    <div id="rels"></div>
+    <div style="margin-top:8px"><button id="all">все</button><button id="none">ни одной</button></div>
+  </details>
+  <details>
+    <summary>Легенда: типы узлов</summary>
+    <div id="types"></div>
+  </details>
   <div id="nodeSec">
     <h2>Узел</h2>
     <div id="info" class="hint">Нажмите на узел, чтобы увидеть инфоблок и все его связи.</div>
   </div>
-  <h2>Типы узлов</h2>
-  <div id="types"></div>
+  <div class="stats" id="stats" style="margin-top:16px"></div>
 </aside>
 <main>
   <svg id="g"></svg>
@@ -109,7 +127,7 @@
 <div id="tip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="graph.js?v=2026-10-15b"></script>
+<script src="graph.js?v=2026-10-16"></script>
 <script>
 const G = window.GRAPH;
 const active = new Set(Object.keys(G.relations));
@@ -168,16 +186,26 @@ relsEl.addEventListener('change', e => {
 });
 document.getElementById('all').onclick = () => { Object.keys(G.relations).forEach(k => active.add(k)); syncBoxes(); update(); };
 document.getElementById('none').onclick = () => { active.clear(); syncBoxes(); update(); };
+function relCount() {
+  const n = Object.keys(G.relations).length;
+  document.getElementById('relCount').textContent = active.size === n ? `все ${n}` : `${active.size} из ${n}`;
+}
 function syncBoxes() { relsEl.querySelectorAll('input').forEach(i => i.checked = active.has(i.dataset.rel)); }
 
 const typeCount = d3.rollup(G.nodes, v => v.length, n => n.type);
 document.getElementById('types').innerHTML = Object.entries(G.nodeTypes)
-  .map(([k, t]) => `<div class="rel"><span class="sw" style="background:${t.color};border-radius:50%"></span>${t.label}<span class="count">${typeCount.get(k) || 0}</span></div>`).join('');
+  .map(([k, t]) => `<div class="rel"><span class="sw" style="background:${t.color};border-radius:50%"></span>${G.typeIcons[k] || ''} ${t.label}<span class="count">${typeCount.get(k) || 0}</span></div>`).join('');
 
 // Граф
 const svg = d3.select('#g');
 const root = svg.append('g');
-const zoom = d3.zoom().scaleExtent([.15, 4]).on('zoom', ev => root.attr('transform', ev.transform));
+const zoom = d3.zoom().scaleExtent([.15, 4]).on('zoom', ev => { root.attr('transform', ev.transform); fadeLabels(); });
+// В общем виде подписи мелких узлов прячем, пока граф отдалён; при наведении подпись видна
+function fadeLabels() {
+  const k = d3.zoomTransform(svg.node()).k;
+  const crowded = !focus && nodeSel.size() > 40;
+  nodeSel.classed('faded', d => crowded && d !== center && d.deg < (k >= .9 ? 0 : k >= .6 ? 6 : 10));
+}
 svg.call(zoom).on('dblclick.zoom', null);
 svg.append('defs').selectAll('marker').data(Object.entries(G.relations)).join('marker')
   .attr('id', d => 'arr-' + d[0]).attr('viewBox', '0 -4 8 8').attr('refX', 16)
@@ -288,7 +316,7 @@ function render() {
     g.append('circle').attr('class', 'dot').attr('fill', d => G.nodeTypes[d.type].color).attr('stroke-width', 1.5);
     g.append('text').attr('class', 'ico').attr('text-anchor', 'middle').attr('dy', '.35em').text(d => d.icon);
     g.append('text').attr('class', 'lbl').attr('text-anchor', 'middle').text(d => d.id);
-    g.append('circle').attr('class', 'badge').attr('r', 6.5).attr('fill', '#f5f5f0');
+    g.append('circle').attr('class', 'badge').attr('fill', '#e8e8e8').attr('stroke', '#16181d').attr('stroke-width', 1);
     g.append('text').attr('class', 'more').attr('text-anchor', 'middle');
     return g;
   });
@@ -302,8 +330,9 @@ function render() {
   nodeSel.each(function (d) {
     const h = !focus && mode === 'step' ? hiddenCount(d, vn) : 0, r = radius(d);
     const g = d3.select(this);
-    g.select('.badge').style('display', h ? null : 'none').attr('cx', r + 5).attr('cy', -r);
-    g.select('.more').text(h ? (h > 99 ? '99+' : '+' + h) : '').attr('x', r + 5).attr('y', -r + 3.5);
+    g.select('.badge').style('display', h ? null : 'none').attr('cx', r + 8).attr('cy', 0);
+    g.select('.more').text(h ? (h > 99 ? '99+' : '+' + h) : '').attr('x', r + 8).attr('y', 3);
+    g.select('.badge').attr('r', h > 9 ? 7.5 : 6);
   });
 
   // подписи на линиях (в фокусе, если связей не слишком много) и названия секторов
@@ -334,6 +363,7 @@ function render() {
     sim.force('link').links(vl);
     sim.alpha(.6).restart();
   }
+  fadeLabels();
 }
 // подпись ставим ближе к соседу, чтобы у центра не было каши
 function lblPos(l) {
@@ -469,6 +499,7 @@ function fitView() {
 svg.on('click', () => select(null));
 
 function update() {
+  relCount();
   if (view === 'graph') render();
   renderInfo();
   if (view === 'table') renderTable();
