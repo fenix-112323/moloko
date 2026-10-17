@@ -190,7 +190,7 @@
 <div id="tip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="graph.js?v=9c03e216"></script>
+<script src="graph.js?v=af0e89c1"></script>
 <script>
 const G = window.GRAPH;
 const active = new Set(Object.keys(G.relations));
@@ -561,7 +561,7 @@ function cardHtml(n) {
   for (const rel of Object.keys(G.relations))
     for (const l of mine.filter(l => l.rel === rel).sort((a, b) => b.w - a.w)) {
       const out = l.source === n, other = out ? l.target : l.source;
-      const title = phrase(l)[out ? 1 : 2], key = rel + '|' + title;
+      const title = phrase(l)[out ? 1 : 2], key = title;
       if (!groups.has(key)) groups.set(key, { rel, title, items: [] });
       groups.get(key).items.push(`<span data-go="${other.id}">${other.icon} ${other.id}</span>${l.note && !title.toLowerCase().includes(l.note) ? ` <span class="hint">(${l.note})</span>` : ''}`);
     }

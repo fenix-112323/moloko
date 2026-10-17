@@ -27,6 +27,16 @@ ul.tree,ul.tree ul{list-style:none;margin:0;padding-left:18px;border-left:1px da
 details.faq{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}
 details.faq summary{cursor:pointer;font-weight:600} details.faq p{margin:8px 0 0}
 ol.steps li{margin:6px 0}
+.wrap.wide{max-width:1100px}
+table.cmp th,table.cmp td{vertical-align:top} table.cmp thead th{font-size:16px}
+ol.timeline{list-style:none;padding:0;border-left:3px solid var(--line);margin-left:8px}
+ol.timeline li{position:relative;padding:0 0 18px 20px} ol.timeline li::before{content:'';position:absolute;left:-9px;top:6px;width:14px;height:14px;border-radius:50%;background:var(--accent)}
+ol.timeline .yr{display:block;color:var(--muted);font-size:14px} ol.timeline p{margin:4px 0}
+#map{width:100%;height:auto;display:block} #map .sphere{fill:var(--bg)} #map path.c{fill:var(--line);stroke:var(--panel);stroke-width:.5}
+#map path.c.on{cursor:pointer;opacity:.85} #map path.c.on:hover{opacity:1} #map path.c.sel{stroke:var(--text);stroke-width:1.2;opacity:1}
+.mregs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0} .mreg{display:inline-flex;gap:6px;align-items:center;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:4px 10px;font:inherit;font-size:14px;cursor:pointer}
+.mreg.on{border-color:var(--text)} .mreg .dot{width:10px;height:10px;border-radius:50%}
+#mapInfo h3{margin:6px 0}
 figure.svmap{margin:18px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
 figure.svmap svg{width:100%;height:auto;display:block} figure.svmap figcaption{text-align:center}
 .sv-lbl{font-size:16px;fill:var(--text);paint-order:stroke;stroke:var(--panel);stroke-width:4px}
