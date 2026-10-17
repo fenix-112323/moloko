@@ -3,7 +3,53 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Граф Молоко</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%A5%9B%3C/text%3E%3C/svg%3E">
+<title>Граф «Молоко»: животные, виды молока, продукты, традиции и люди</title>
+<meta name="description" content="Интерактивный граф знаний о молоке: от каких животных его получают, чем отличаются виды молока, какие продукты делают по традициям разных народов и как молоко попадает к столу.">
+<link rel="canonical" href="https://fenix-112323.github.io/moloko/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Граф «Молоко»">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:title" content="Граф «Молоко»: животные, виды молока, продукты, традиции и люди">
+<meta property="og:description" content="Интерактивный граф знаний о молоке: от каких животных его получают, чем отличаются виды молока, какие продукты делают по традициям разных народов и как молоко попадает к столу.">
+<meta property="og:url" content="https://fenix-112323.github.io/moloko/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "WebSite",
+   "@id": "https://fenix-112323.github.io/moloko/#website",
+   "url": "https://fenix-112323.github.io/moloko/",
+   "name": "Граф «Молоко»",
+   "inLanguage": "ru",
+   "description": "Интерактивный граф знаний о молоке: от каких животных его получают, чем отличаются виды молока, какие продукты делают по традициям разных народов и как молоко попадает к столу."
+  },
+  {
+   "@type": "WebPage",
+   "@id": "https://fenix-112323.github.io/moloko/#webpage",
+   "url": "https://fenix-112323.github.io/moloko/",
+   "name": "Граф «Молоко»: животные, виды молока, продукты, традиции и люди",
+   "description": "Интерактивный граф знаний о молоке: от каких животных его получают, чем отличаются виды молока, какие продукты делают по традициям разных народов и как молоко попадает к столу.",
+   "inLanguage": "ru",
+   "isPartOf": {
+    "@id": "https://fenix-112323.github.io/moloko/#website"
+   },
+   "about": {
+    "@id": "https://fenix-112323.github.io/moloko/moloko/#term"
+   }
+  },
+  {
+   "@type": "DefinedTermSet",
+   "@id": "https://fenix-112323.github.io/moloko/#termset",
+   "name": "Граф «Молоко»",
+   "url": "https://fenix-112323.github.io/moloko/",
+   "description": "Понятия, связанные с молоком: виды молока, животные, продукты, регионы, народы, профессии."
+  }
+ ]
+}
+</script>
 <style>
   :root { --bg:#16181d; --panel:#1f222a; --text:#e8e8e8; --muted:#9aa0a6; --line:#2e323c; }
   * { box-sizing: border-box; }
@@ -53,7 +99,9 @@
   .ib-type { display:inline-block; font-size:11px; padding:1px 7px; border-radius:10px; color:#16181d; margin:2px 0 6px; }
   .ib-sec { margin-top:7px; }
   .ib-sec .h { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:2px; }
-  .ib-sec a { color:#8fc1e3; }
+  .ib-sec a, a.pagelink { color:#8fc1e3; text-decoration:none; }
+  a.pagelink { display:inline-block; font-size:13px; margin:0 0 6px; }
+  a.pagelink:hover { text-decoration:underline; }
   .bar { display:grid; grid-template-columns:62px 1fr 64px; align-items:center; gap:6px; font-size:12px; margin:2px 0; }
   .bar .track { height:6px; background:#2b2f39; border-radius:3px; overflow:hidden; }
   .bar .fill { height:100%; border-radius:3px; }
@@ -112,6 +160,8 @@
     <h2>Узел</h2>
     <div id="info" class="hint">Нажмите на узел, чтобы увидеть инфоблок и все его связи.</div>
   </div>
+  <h2>Все понятия</h2>
+  <a class="pagelink" href="vse/">📚 Пирамида понятий и все узлы списком →</a>
   <div class="stats" id="stats" style="margin-top:16px"></div>
 </aside>
 <main>
@@ -127,7 +177,7 @@
 <div id="tip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="graph.js?v=2026-10-16"></script>
+<script src="graph.js?v=c7c9412b"></script>
 <script>
 const G = window.GRAPH;
 const active = new Set(Object.keys(G.relations));
@@ -411,11 +461,12 @@ function plural(n, one, few, many) {
 
 // Шкалы состава видов молока
 const F = Object.values(G.milkFacts || {});
-const fmax = k => Math.max(...F.map(f => f[k]));
+const fmax = k => Math.max(...F.map(f => f[k] || 0));
 const BARS = [['fat', 'жир', 'г', '#e8d36b'], ['protein', 'белок', 'г', '#4fb3a9'], ['lactose', 'лактоза', 'г', '#9fa8da'],
               ['kcal', 'энергия', 'ккал', '#ef8a8a'], ['calcium', 'кальций', 'мг', '#8fc1e3']];
-const factsBars = f => BARS.map(([k, t, u, c]) =>
-  `<div class="bar"><span>${t}</span><div class="track"><div class="fill" style="width:${Math.max(3, f[k] / fmax(k) * 100)}%;background:${c}"></div></div><span class="v">${f[k]} ${u}</span></div>`).join('');
+const factsBars = f => BARS.map(([k, t, u, c]) => f[k] == null
+  ? `<div class="bar"><span>${t}</span><div class="track"></div><span class="v">нет данных</span></div>`
+  : `<div class="bar"><span>${t}</span><div class="track"><div class="fill" style="width:${Math.max(3, f[k] / fmax(k) * 100)}%;background:${c}"></div></div><span class="v">${f[k]} ${u}</span></div>`).join('');
 const srcLinks = f => (f.src || []).map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.name}</a>`).join(', ');
 
 // Инфоблок узла
@@ -427,7 +478,8 @@ function infoBlock(n, compact) {
     .map(l => (l.source === n ? '→ ' + l.target.id : '← ' + l.source.id)).join(', ');
   const path = n === center ? null : pathText(n);
   let h = `<div class="t" style="font-size:${compact ? 14 : 16}px">${n.id}</div>
-    <span class="ib-type" style="background:${t.color}">${t.label}</span>
+    <span class="ib-type" style="background:${t.color}">${t.label}</span>${n.kind ? ` <span class="ib-type" style="background:#d9d4c7">${n.kind === 'tradition' ? '🏺 традиционный' : '🏭 технологический'}</span>` : ''}
+    ${compact ? '' : `<div><a class="pagelink" href="${n.slug}/">Страница: ${n.id} — подробнее →</a></div>`}
     <div>${n.info || ''}</div>`;
   if (n.facts) {
     const f = n.facts;
