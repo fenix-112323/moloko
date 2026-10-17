@@ -26,5 +26,10 @@ ul.tree,ul.tree ul{list-style:none;margin:0;padding-left:18px;border-left:1px da
 .theme:hover{border-color:var(--link);text-decoration:none} .theme .ti{font-size:24px}
 details.faq{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}
 details.faq summary{cursor:pointer;font-weight:600} details.faq p{margin:8px 0 0}
-ol.steps li{margin:6px 0} ul.src{font-size:14px}
+ol.steps li{margin:6px 0}
+figure.svmap{margin:18px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+figure.svmap svg{width:100%;height:auto;display:block} figure.svmap figcaption{text-align:center}
+.sv-lbl{font-size:16px;fill:var(--text);paint-order:stroke;stroke:var(--panel);stroke-width:4px}
+.sv-verb{font-size:12.5px;font-style:italic;text-anchor:middle;paint-order:stroke;stroke:var(--panel);stroke-width:3px}
+.sv-ico{font-size:14px;text-anchor:middle} figure.svmap a:hover .sv-lbl{text-decoration:underline} ul.src{font-size:14px}
 ul.tree{padding-left:4px;border:0} ul.tree li{margin:3px 0} ul.tree b{font-weight:600;color:var(--muted)}

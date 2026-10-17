@@ -114,7 +114,12 @@
   .mcard:hover { border-color:#596173; }
   #hud { position:absolute; left:12px; top:12px; display:flex; flex-wrap:wrap; gap:0; z-index:5; }
   #hud button { background:#1f222aee; }
-  #menuBtn, #sheet, #nodeSec { display:none; }
+  #menuBtn, #sheet, #nodeSec, #tour { display:none; }
+  body.touring #tour { display:block; position:absolute; left:50%; transform:translateX(-50%); bottom:16px; z-index:16; width:min(560px, calc(100% - 32px));
+    background:#1f222aee; border:1px solid #596173; border-radius:12px; padding:10px 14px; box-shadow:0 6px 24px #000a; }
+  .tour-h { display:flex; gap:10px; align-items:center; } .tour-h button { margin:0 0 0 auto; }
+  #tourText { margin:6px 0 8px; font-size:13.5px; } .tour-nav { display:flex; justify-content:space-between; }
+  .tours { display:flex; flex-wrap:wrap; gap:6px; } .tours button { margin:0; }
   /* Компьютер: карточка узла — справа поверх графа */
   #sheet { position:fixed; right:16px; top:16px; width:360px; max-height:calc(100dvh - 32px); overflow:auto; z-index:15;
            background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px 18px; box-shadow:0 6px 24px #000a; }
@@ -132,6 +137,8 @@
     #sheet { left:0; right:0; top:auto; bottom:0; width:auto; max-height:52dvh; border:0; border-top:1px solid var(--line);
              border-radius:14px 14px 0 0; padding:14px 16px 20px; box-shadow:0 -6px 20px #0009; }
     #tip { display:none !important; }
+    body.touring #tour { top:56px; bottom:auto; }
+    body.touring.sheet #sheet { display:none; }
     .bar { grid-template-columns:56px 1fr 60px; }
   }
 </style>
@@ -173,6 +180,9 @@
     <button id="mStep" class="on" title="Показывать только раскрытые узлы">по шагам</button><button id="mAll" title="Показать весь граф">весь граф</button><button id="reset" title="Свернуть всё к центру">↺ к центру</button>
   </div>
   <button id="menuBtn">☰</button>
+  <div id="tour"><div class="tour-h"><b id="tourTitle"></b><span id="tourStep" class="hint"></span><button id="tourClose" title="Закончить маршрут">✕</button></div>
+    <div id="tourText"></div>
+    <div class="tour-nav"><button id="tourPrev">← назад</button><button id="tourNext">дальше →</button></div></div>
   <div id="table"></div>
   <div id="milk"></div>
 </main>
@@ -180,7 +190,7 @@
 <div id="tip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="graph.js?v=7886db17"></script>
+<script src="graph.js?v=9c03e216"></script>
 <script>
 const G = window.GRAPH;
 const active = new Set(Object.keys(G.relations));
@@ -508,8 +518,35 @@ function welcomeHtml() {
   return `<div class="t" style="font-size:16px">🥛 Граф «Молоко»</div>
     <div class="hint" style="margin:4px 0 10px">${G.nodes.length} понятий: животные, виды молока, продукты, традиции народов, люди и здоровье. Нажмите на любой узел или выберите тему.</div>
     <div class="wthemes">${(G.themes || []).map(t => `<a class="wtheme" href="${t.slug}/"><span>${t.icon}</span><b>${t.title}</b><i>${t.desc}</i></a>`).join('')}</div>
+    <div class="ib-sec"><div class="h">Маршруты по графу</div><div class="tours">${(G.tours || []).map(t => `<button data-tour="${t.id}">${t.icon} ${t.title}</button>`).join('')}</div></div>
     <div class="hint" style="margin-top:10px"><a class="pagelink" href="vse/">📚 Все понятия и пирамида →</a></div>`;
 }
+// Маршруты: пошаговая экскурсия по узлам графа
+let tour = null;
+function startTour(id) {
+  const t = (G.tours || []).find(x => x.id === id);
+  if (!t) return;
+  tour = { t, i: 0 };
+  document.body.classList.add('touring');
+  document.body.classList.remove('menu');
+  if (view !== 'graph') setView('graph');
+  tourStep();
+}
+function tourStep() {
+  const { t, i } = tour, n = byId[t.steps[i]];
+  document.getElementById('tourTitle').textContent = t.icon + ' ' + t.title;
+  document.getElementById('tourStep').textContent = `шаг ${i + 1} из ${t.steps.length}`;
+  document.getElementById('tourText').innerHTML = `<b>${n.icon} ${n.id}</b> — ${n.info}`;
+  document.getElementById('tourPrev').disabled = i === 0;
+  document.getElementById('tourNext').textContent = i === t.steps.length - 1 ? 'готово ✓' : 'дальше →';
+  select(n);
+}
+function endTour() { tour = null; document.body.classList.remove('touring'); }
+document.getElementById('tourPrev').onclick = () => { if (tour.i > 0) { tour.i--; tourStep(); } };
+document.getElementById('tourNext').onclick = () => { if (tour.i < tour.t.steps.length - 1) { tour.i++; tourStep(); } else endTour(); };
+document.getElementById('tourClose').onclick = endTour;
+document.addEventListener('click', e => { const b = e.target.closest('[data-tour]'); if (b) startTour(b.dataset.tour); });
+
 function renderInfo() {
   const html = selected ? cardHtml(selected) : '';
   document.getElementById('info').innerHTML = html || 'Нажмите на узел, чтобы увидеть инфоблок и все его связи.';
