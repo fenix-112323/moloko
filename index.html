@@ -102,6 +102,9 @@
   .ib-sec a, a.pagelink { color:#8fc1e3; text-decoration:none; }
   a.pagelink { display:inline-block; font-size:13px; margin:0 0 6px; }
   a.pagelink:hover { text-decoration:underline; }
+  .wthemes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .wtheme { display:flex; flex-direction:column; gap:1px; background:#262a33; border:1px solid var(--line); border-radius:10px; padding:8px 10px; color:var(--text); text-decoration:none; }
+  .wtheme:hover { border-color:#596173; } .wtheme span { font-size:20px; } .wtheme b { font-size:13px; } .wtheme i { font-style:normal; font-size:11.5px; color:var(--muted); }
   .bar { display:grid; grid-template-columns:62px 1fr 64px; align-items:center; gap:6px; font-size:12px; margin:2px 0; }
   .bar .track { height:6px; background:#2b2f39; border-radius:3px; overflow:hidden; }
   .bar .fill { height:100%; border-radius:3px; }
@@ -177,7 +180,7 @@
 <div id="tip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="graph.js?v=c7c9412b"></script>
+<script src="graph.js?v=7886db17"></script>
 <script>
 const G = window.GRAPH;
 const active = new Set(Object.keys(G.relations));
@@ -192,7 +195,11 @@ if (dup.length) console.warn('Повторяющиеся узлы:', dup);
 
 document.getElementById('stats').textContent =
   `${G.nodes.length} узлов · ${G.edges.length} связей · ${Object.keys(G.relations).length} логик`;
-document.getElementById('names').innerHTML = G.nodes.map(n => `<option value="${n.id}">`).join('');
+// Поиск по названиям и синонимам: «айраг» найдёт кумыс, «ghee» — гхи
+const nameIndex = new Map();
+G.nodes.forEach(n => [n.id, ...(n.aliases || [])].forEach(a => { const k = a.toLowerCase(); if (!nameIndex.has(k)) nameIndex.set(k, n.id); }));
+document.getElementById('names').innerHTML = [...nameIndex].map(([a, id]) =>
+  `<option value="${a}"${a !== id.toLowerCase() ? ` label="→ ${id}"` : ''}>`).join('');
 
 // Модель
 const nodes = G.nodes.map(n => ({ ...n, deg: 0 }));
@@ -495,11 +502,20 @@ function infoBlock(n, compact) {
 }
 
 // Карточка узла: слева на компьютере, снизу на телефоне
+let welcomeClosed = false;
+try { welcomeClosed = sessionStorage.getItem('moloko-welcome') === '1'; } catch (e) {}
+function welcomeHtml() {
+  return `<div class="t" style="font-size:16px">🥛 Граф «Молоко»</div>
+    <div class="hint" style="margin:4px 0 10px">${G.nodes.length} понятий: животные, виды молока, продукты, традиции народов, люди и здоровье. Нажмите на любой узел или выберите тему.</div>
+    <div class="wthemes">${(G.themes || []).map(t => `<a class="wtheme" href="${t.slug}/"><span>${t.icon}</span><b>${t.title}</b><i>${t.desc}</i></a>`).join('')}</div>
+    <div class="hint" style="margin-top:10px"><a class="pagelink" href="vse/">📚 Все понятия и пирамида →</a></div>`;
+}
 function renderInfo() {
   const html = selected ? cardHtml(selected) : '';
   document.getElementById('info').innerHTML = html || 'Нажмите на узел, чтобы увидеть инфоблок и все его связи.';
-  document.getElementById('sheetBody').innerHTML = html;
-  document.body.classList.toggle('sheet', !!selected && view === 'graph');
+  const welcome = !selected && !welcomeClosed && view === 'graph';
+  document.getElementById('sheetBody').innerHTML = selected ? html : welcome ? welcomeHtml() : '';
+  document.body.classList.toggle('sheet', (!!selected || welcome) && view === 'graph');
 }
 function cardHtml(n) {
   const mine = links.filter(l => (l.source === n || l.target === n) && active.has(l.rel));
@@ -517,7 +533,10 @@ function cardHtml(n) {
 }
 for (const id of ['info', 'sheetBody', 'tip'])
   document.getElementById(id).addEventListener('click', e => { const go = e.target.dataset.go; if (go) select(byId[go], true); });
-document.getElementById('sheetClose').onclick = () => select(null);
+document.getElementById('sheetClose').onclick = () => {
+  if (!selected) { welcomeClosed = true; try { sessionStorage.setItem('moloko-welcome', '1'); } catch (e) {} renderInfo(); return; }
+  select(null);
+};
 
 // Нажатие на узел: фокус на нём; повторное нажатие — назад к обзору
 function onNodeClick(d) {
@@ -572,7 +591,10 @@ document.getElementById('reset').onclick = () => { expanded.clear(); expanded.se
 // Поиск
 document.getElementById('q').addEventListener('change', e => {
   const v = e.target.value.trim().toLowerCase();
-  const n = byId[v] || nodes.find(n => n.id.toLowerCase().includes(v));
+  if (!v) return;
+  const keys = [...nameIndex.keys()];
+  const k = nameIndex.has(v) ? v : keys.find(a => a.startsWith(v)) || keys.find(a => a.includes(v));
+  const n = k && byId[nameIndex.get(k)];
   if (n) { if (view !== 'graph') setView('graph'); document.body.classList.remove('menu'); select(n, true); }
 });
 

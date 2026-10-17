@@ -21,4 +21,10 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 footer{margin-top:40px;font-size:14px;color:var(--muted)}
 ul.cols{columns:2 240px;padding-left:18px} ul.cols li{margin:2px 0;break-inside:avoid}
 ul.tree,ul.tree ul{list-style:none;margin:0;padding-left:18px;border-left:1px dashed var(--line)}
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:14px 0}
+.theme{display:flex;flex-direction:column;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;color:var(--text)}
+.theme:hover{border-color:var(--link);text-decoration:none} .theme .ti{font-size:24px}
+details.faq{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}
+details.faq summary{cursor:pointer;font-weight:600} details.faq p{margin:8px 0 0}
+ol.steps li{margin:6px 0} ul.src{font-size:14px}
 ul.tree{padding-left:4px;border:0} ul.tree li{margin:3px 0} ul.tree b{font-weight:600;color:var(--muted)}
